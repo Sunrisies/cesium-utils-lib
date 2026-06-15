@@ -1,17 +1,24 @@
-import { Viewer, Cartesian2, defined, Cartographic, Math as CesiumMath } from "cesium"
+/**
+ * cesium-utils-lib 入口
+ *
+ * 统一导出所有工具函数与类型，外部使用时：
+ * ```ts
+ * import { getLonLat, flyTo } from "cesium-utils-lib"
+ * ```
+ */
 
-export interface LonLat {
-  Lon: number
-  Lat: number
-}
+// ===== 经纬度转换 =====
+export { getLonLat, getLonLatByCartesian } from "./lonlat"
+export type { LonLat } from "./lonlat"
 
-export const getLonLat = (viewer: Viewer, position: Cartesian2): LonLat | null => {
-  const cartesian = viewer.scene.pickPosition(position)
-  if (defined(cartesian)) {
-    const cartographic = Cartographic.fromCartesian(cartesian)
-    const Lon = CesiumMath.toDegrees(cartographic.longitude)
-    const Lat = CesiumMath.toDegrees(cartographic.latitude)
-    return { Lon, Lat }
-  }
-  return null // 拾取失败返回 null，避免 0,0 误导
-}
+// ===== 相机控制 =====
+export { flyTo } from "./flyTo"
+export type { FlyToOptions } from "./flyTo"
+export { setView } from "./setView"
+export type { SetViewOptions } from "./setView"
+export { flyToPositions } from "./flyToPositions"
+
+// ===== 变换矩阵 =====
+export { calculateLocationMatrix } from "./calculateLocationMatrix"
+export type { CalculateLocationOptions } from "./calculateLocationMatrix"
+
