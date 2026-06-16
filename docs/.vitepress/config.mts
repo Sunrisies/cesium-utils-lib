@@ -27,6 +27,28 @@ export default defineConfig({
           text: "API 参考",
           items: [
             { text: "概述", link: "/api/" },
+            {
+              text: "函数",
+              base: "/api/functions/",
+              items: [
+                { text: "getLonLat", link: "getLonLat" },
+                { text: "getLonLatByCartesian", link: "getLonLatByCartesian" },
+                { text: "flyTo", link: "flyTo" },
+                { text: "setView", link: "setView" },
+                { text: "flyToPositions", link: "flyToPositions" },
+                { text: "calculateLocationMatrix", link: "calculateLocationMatrix" },
+              ],
+            },
+            {
+              text: "接口",
+              base: "/api/interfaces/",
+              items: [
+                { text: "LonLat", link: "LonLat" },
+                { text: "FlyToOptions", link: "FlyToOptions" },
+                { text: "SetViewOptions", link: "SetViewOptions" },
+                { text: "CalculateLocationOptions", link: "CalculateLocationOptions" },
+              ],
+            },
           ],
         },
       ],
