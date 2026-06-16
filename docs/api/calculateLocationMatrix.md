@@ -1,5 +1,87 @@
-# Function: calculateLocationMatrix()
+---
+title: 位置矩阵
+description: 根据经纬度与朝向计算局部坐标变换矩阵（Matrix4），用于将 3D 模型放置在地球表面
+---
 
+# 位置矩阵
+
+> 根据经纬度与朝向计算局部坐标变换矩阵（Matrix4），用于将 3D 模型放置在地球表面
+
+Defined in: calculateLocationMatrix.ts:12
+
+位置矩阵计算参数
+
+## Properties
+
+### heading?
+
+```ts
+optional heading?: number;
+```
+
+Defined in: calculateLocationMatrix.ts:18
+
+偏航角（度），模型朝向，默认 0
+
+***
+
+### height?
+
+```ts
+optional height?: number;
+```
+
+Defined in: calculateLocationMatrix.ts:24
+
+海拔高度（米），默认 0
+
+***
+
+### latitude
+
+```ts
+latitude: number;
+```
+
+Defined in: calculateLocationMatrix.ts:16
+
+纬度（度）
+
+***
+
+### longitude
+
+```ts
+longitude: number;
+```
+
+Defined in: calculateLocationMatrix.ts:14
+
+经度（度）
+
+***
+
+### pitch?
+
+```ts
+optional pitch?: number;
+```
+
+Defined in: calculateLocationMatrix.ts:20
+
+俯仰角（度），默认 0
+
+***
+
+### roll?
+
+```ts
+optional roll?: number;
+```
+
+Defined in: calculateLocationMatrix.ts:22
+
+翻滚角（度），默认 0
 ```ts
 function calculateLocationMatrix(options): Matrix4;
 ```
@@ -24,7 +106,7 @@ Defined in: calculateLocationMatrix.ts:55
 
 | Parameter | Type | Description |
 | ------ | ------ | ------ |
-| `options` | [`CalculateLocationOptions`](../interfaces/CalculateLocationOptions.md) | 位置与朝向参数 |
+| `options` | `CalculateLocationOptions` | 位置与朝向参数 |
 
 ## Returns
 

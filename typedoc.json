@@ -1,15 +1,16 @@
 {
   "plugin": ["typedoc-plugin-markdown"],
   "out": "docs/api",
-  "entryPoints": ["src/index.ts"],
+  "entryPoints": ["src/"],
+  "entryPointStrategy": "expand",
   "tsconfig": "tsconfig.json",
+  "exclude": ["src/index.ts"],
   "readme": "none",
   "hideBreadcrumbs": true,
   "hidePageHeader": true,
   "parametersFormat": "table",
   "propertyMembersFormat": "table",
   "typeDeclarationFormat": "table",
-  "indexFormat": "table",
   "useCodeBlocks": true,
   "textContentMappings": {
     "body.anyVersion": ""

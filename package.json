@@ -19,9 +19,9 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "docs:gen": "typedoc",
-    "docs:dev": "typedoc && vitepress dev docs",
-    "docs:build": "typedoc && vitepress build docs",
+    "docs:gen": "typedoc && bun run scripts/consolidate.mjs",
+    "docs:dev": "typedoc && bun run scripts/consolidate.mjs && vitepress dev docs",
+    "docs:build": "typedoc && bun run scripts/consolidate.mjs && vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
   "peerDependencies": {

@@ -1,4 +1,11 @@
-# Function: flyToPositions()
+---
+title: 多点视野飞行
+description: 根据一组坐标点自动计算包围盒中心与最佳高度，飞至所有点可见的视野
+---
+
+# 多点视野飞行
+
+> 根据一组坐标点自动计算包围盒中心与最佳高度，飞至所有点可见的视野
 
 ```ts
 function flyToPositions(
@@ -28,7 +35,7 @@ Defined in: flyToPositions.ts:41
 | ------ | ------ | ------ |
 | `viewer` | `Viewer` | Cesium Viewer 实例 |
 | `positions` | `number`[][] | 经纬度坐标数组，每项格式为 [lng, lat] 或 [lng, lat, height] height 参数在此函数中忽略（高度自动计算） |
-| `options?` | [`FlyToOptions`](../interfaces/FlyToOptions.md) | 可选，飞行动画参数 |
+| `options?` | `FlyToOptions` | 可选，飞行动画参数 |
 
 ## Returns
 

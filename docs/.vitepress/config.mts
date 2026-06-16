@@ -4,6 +4,7 @@ export default defineConfig({
   title: "cesium-utils-lib",
   description: "Cesium 地理工具函数库 — 轻量级 TypeScript 工具集",
   lang: "zh-CN",
+  ignoreDeadLinks: true,
   themeConfig: {
     logo: "https://cesium.com/favicon.ico",
 
@@ -26,29 +27,12 @@ export default defineConfig({
         {
           text: "API 参考",
           items: [
-            { text: "概述", link: "/api/" },
-            {
-              text: "函数",
-              base: "/api/functions/",
-              items: [
-                { text: "getLonLat", link: "getLonLat" },
-                { text: "getLonLatByCartesian", link: "getLonLatByCartesian" },
-                { text: "flyTo", link: "flyTo" },
-                { text: "setView", link: "setView" },
-                { text: "flyToPositions", link: "flyToPositions" },
-                { text: "calculateLocationMatrix", link: "calculateLocationMatrix" },
-              ],
-            },
-            {
-              text: "接口",
-              base: "/api/interfaces/",
-              items: [
-                { text: "LonLat", link: "LonLat" },
-                { text: "FlyToOptions", link: "FlyToOptions" },
-                { text: "SetViewOptions", link: "SetViewOptions" },
-                { text: "CalculateLocationOptions", link: "CalculateLocationOptions" },
-              ],
-            },
+            { text: "概览", link: "/api/" },
+            { text: "坐标转换", link: "/api/lonlat" },
+            { text: "相机飞行", link: "/api/flyTo" },
+            { text: "相机跳转", link: "/api/setView" },
+            { text: "多点视野飞行", link: "/api/flyToPositions" },
+            { text: "位置矩阵", link: "/api/calculateLocationMatrix" },
           ],
         },
       ],
@@ -61,10 +45,6 @@ export default defineConfig({
     footer: {
       message: "MIT License",
       copyright: "Copyright © 2025",
-    },
-
-    editLink: {
-      pattern: "https://github.com/your-org/cesium-utils-lib/edit/main/docs/:path",
     },
   },
 })
