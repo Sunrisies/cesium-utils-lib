@@ -1,14 +1,17 @@
----
-title: API 参考
----
-
 # API 参考
 
-| 模块 | 说明 |
-| --- | --- |
-| [位置矩阵](calculateLocationMatrix.md) | 根据经纬度与朝向计算局部坐标变换矩阵（Matrix4），用于将 3D 模型放置在地球表面 |
-| [相机飞行](flyTo.md) | 相机平滑飞至指定位置，支持自定义朝向和飞行时长 |
-| [多点视野飞行](flyToPositions.md) | 根据一组坐标点自动计算包围盒中心与最佳高度，飞至所有点可见的视野 |
-| [坐标转换](lonlat.md) | 屏幕坐标拾取与 Cartesian3 转换，获取经纬度与海拔高度 |
-| [相机跳转](setView.md) | 相机即时跳转至指定位置，无过渡动画，适用于地图初始化和坐标复位 |
+## Interfaces
 
+- [CalculateLocationOptions](interfaces/CalculateLocationOptions.md)
+- [FlyToOptions](interfaces/FlyToOptions.md)
+- [LonLat](interfaces/LonLat.md)
+- [SetViewOptions](interfaces/SetViewOptions.md)
+
+## Functions
+
+- [calculateLocationMatrix](functions/calculateLocationMatrix.md)
+- [flyTo](functions/flyTo.md)
+- [flyToPositions](functions/flyToPositions.md)
+- [getLonLat](functions/getLonLat.md)
+- [getLonLatByCartesian](functions/getLonLatByCartesian.md)
+- [setView](functions/setView.md)
