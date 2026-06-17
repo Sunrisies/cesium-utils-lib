@@ -7,11 +7,11 @@ description: 根据经纬度与朝向计算局部坐标变换矩阵（Matrix4）
 
 > 根据经纬度与朝向计算局部坐标变换矩阵（Matrix4），用于将 3D 模型放置在地球表面
 
-Defined in: calculateLocationMatrix.ts:12
+定义于： calculateLocationMatrix.ts:12
 
 位置矩阵计算参数
 
-## Properties
+## 属性
 
 ### heading?
 
@@ -19,7 +19,7 @@ Defined in: calculateLocationMatrix.ts:12
 optional heading?: number;
 ```
 
-Defined in: calculateLocationMatrix.ts:18
+定义于： calculateLocationMatrix.ts:18
 
 偏航角（度），模型朝向，默认 0
 
@@ -31,7 +31,7 @@ Defined in: calculateLocationMatrix.ts:18
 optional height?: number;
 ```
 
-Defined in: calculateLocationMatrix.ts:24
+定义于： calculateLocationMatrix.ts:24
 
 海拔高度（米），默认 0
 
@@ -43,7 +43,7 @@ Defined in: calculateLocationMatrix.ts:24
 latitude: number;
 ```
 
-Defined in: calculateLocationMatrix.ts:16
+定义于： calculateLocationMatrix.ts:16
 
 纬度（度）
 
@@ -55,7 +55,7 @@ Defined in: calculateLocationMatrix.ts:16
 longitude: number;
 ```
 
-Defined in: calculateLocationMatrix.ts:14
+定义于： calculateLocationMatrix.ts:14
 
 经度（度）
 
@@ -67,7 +67,7 @@ Defined in: calculateLocationMatrix.ts:14
 optional pitch?: number;
 ```
 
-Defined in: calculateLocationMatrix.ts:20
+定义于： calculateLocationMatrix.ts:20
 
 俯仰角（度），默认 0
 
@@ -79,14 +79,14 @@ Defined in: calculateLocationMatrix.ts:20
 optional roll?: number;
 ```
 
-Defined in: calculateLocationMatrix.ts:22
+定义于： calculateLocationMatrix.ts:22
 
 翻滚角（度），默认 0
 ```ts
 function calculateLocationMatrix(options): Matrix4;
 ```
 
-Defined in: calculateLocationMatrix.ts:55
+定义于： calculateLocationMatrix.ts:55
 
 根据经纬度与朝向计算局部坐标变换矩阵
 
@@ -102,19 +102,19 @@ Defined in: calculateLocationMatrix.ts:55
 ⚠️ 注意：此函数未进行地形采样，高度默认 0（地表）。
    如需贴合地形，可先调用 Cesium.sampleTerrain 获取地形高度后传入。
 
-## Parameters
+## 参数
 
 | Parameter | Type | Description |
 | ------ | ------ | ------ |
 | `options` | `CalculateLocationOptions` | 位置与朝向参数 |
 
-## Returns
+## 返回值
 
 `Matrix4`
 
 4x4 变换矩阵（Matrix4），可直接赋给 model.modelMatrix
 
-## Example
+## 示例
 
 ```ts
 // 将一个 3D 模型放在北京天安门位置，朝东 45 度

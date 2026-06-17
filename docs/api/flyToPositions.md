@@ -14,7 +14,7 @@ function flyToPositions(
    options?): void;
 ```
 
-Defined in: flyToPositions.ts:41
+定义于： flyToPositions.ts:41
 
 飞至一组坐标点的最佳视野
 
@@ -29,7 +29,7 @@ Defined in: flyToPositions.ts:41
 4. 设置相机高度 = 球面距离 × 5，确保全部可见
 5. 调用 flyTo 飞至该位置
 
-## Parameters
+## 参数
 
 | Parameter | Type | Description |
 | ------ | ------ | ------ |
@@ -37,11 +37,11 @@ Defined in: flyToPositions.ts:41
 | `positions` | `number`[][] | 经纬度坐标数组，每项格式为 [lng, lat] 或 [lng, lat, height] height 参数在此函数中忽略（高度自动计算） |
 | `options?` | `FlyToOptions` | 可选，飞行动画参数 |
 
-## Returns
+## 返回值
 
 `void`
 
-## Examples
+## 示例
 
 ```ts
 // 同时查看北京、上海、广州三个城市

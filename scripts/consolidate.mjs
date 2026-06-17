@@ -52,6 +52,9 @@ for (const dirName of modDirs) {
   // 清理残留的相对链接
   content = content.replace(/\[([^\]]+)\]\([^)]*\.md\)/g, "$1")
 
+  // 英文标题 → 中文
+  content = localizeHeadings(content)
+
   // 清理空分组标题和多余空行
   content = content
     .replace(/## (Functions|Interfaces)\s*\n/g, "")
@@ -84,6 +87,37 @@ if (existsSync(oldReadme)) {
 }
 
 console.log("🎉 全部完成")
+
+function localizeHeadings(content) {
+  // ⚠️ 长匹配先放前面，避免短匹配截胡（如 Examples 必须在 Example 之前）
+  const ZH = {
+    "Examples": "示例",
+    "Example": "示例",
+    "Properties": "属性",
+    "Parameters": "参数",
+    "Returns": "返回值",
+    "Type Parameters": "类型参数",
+    "Default Value": "默认值",
+    "Defined in:": "定义于：",
+    "Overrides": "重写",
+    "Inherited from": "继承自",
+    "Methods": "方法",
+    "Enumeration Members": "枚举成员",
+    "Enumeration": "枚举",
+  }
+  let result = content
+  for (const [en, zh] of Object.entries(ZH)) {
+    // 替换 ## 标题行
+    result = result.replace(new RegExp(`^## ${escapeRegex(en)}`, "gm"), `## ${zh}`)
+    // 替换行内标记（如 Defined in:）
+    result = result.replace(new RegExp(escapeRegex(en), "g"), zh)
+  }
+  return result
+
+  function escapeRegex(s) {
+    return s.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&")
+  }
+}
 
 function inlineChildren(content, baseDir) {
   const regex = /\[([^\]]+)\]\(([^)]+\.md)\)/g
