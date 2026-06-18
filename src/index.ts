@@ -22,3 +22,11 @@ export { flyToPositions } from "./flyToPositions"
 export { calculateLocationMatrix } from "./calculateLocationMatrix"
 export type { CalculateLocationOptions } from "./calculateLocationMatrix"
 
+// ===== Billboard / Label =====
+export { createPinImage, createBillboardEntity, createLabelEntity } from "./billboard"
+export type {
+  CreatePinImageOptions,
+  CreateBillboardOptions,
+  CreateLabelOptions,
+} from "./billboard"
+

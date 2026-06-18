@@ -34,6 +34,9 @@ export default defineConfig({
               collapsed: false,
               items: [
                 { text: "calculateLocationMatrix", link: "calculateLocationMatrix" },
+                { text: "createBillboardEntity", link: "createBillboardEntity" },
+                { text: "createLabelEntity", link: "createLabelEntity" },
+                { text: "createPinImage", link: "createPinImage" },
                 { text: "flyTo", link: "flyTo" },
                 { text: "flyToPositions", link: "flyToPositions" },
                 { text: "getLonLat", link: "getLonLat" },
@@ -47,6 +50,9 @@ export default defineConfig({
               collapsed: false,
               items: [
                 { text: "CalculateLocationOptions", link: "CalculateLocationOptions" },
+                { text: "CreateBillboardOptions", link: "CreateBillboardOptions" },
+                { text: "CreateLabelOptions", link: "CreateLabelOptions" },
+                { text: "CreatePinImageOptions", link: "CreatePinImageOptions" },
                 { text: "FlyToOptions", link: "FlyToOptions" },
                 { text: "LonLat", link: "LonLat" },
                 { text: "SetViewOptions", link: "SetViewOptions" },
