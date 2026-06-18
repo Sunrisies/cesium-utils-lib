@@ -18,6 +18,7 @@
 - [createPinImage](functions/createPinImage.md)
 - [flyTo](functions/flyTo.md)
 - [flyToPositions](functions/flyToPositions.md)
+- [getCameraHeight](functions/getCameraHeight.md)
 - [getLonLat](functions/getLonLat.md)
 - [getLonLatByCartesian](functions/getLonLatByCartesian.md)
 - [setView](functions/setView.md)

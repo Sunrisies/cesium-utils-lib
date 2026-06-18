@@ -30,3 +30,6 @@ export type {
   CreateLabelOptions,
 } from "./billboard"
 
+// ===== 相机查询 =====
+export { getCameraHeight } from "./camera"
+
