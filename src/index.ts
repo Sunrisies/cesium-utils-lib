@@ -34,5 +34,5 @@ export type {
 export { getCameraHeight } from "./camera"
 
 // ===== 距离测量 =====
-export { distance } from "./measure"
+export { distance, midpoint } from "./measure"
 

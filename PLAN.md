@@ -19,7 +19,7 @@
 |------|------|--------|
 | `distance(lng1, lat1, lng2, lat2)` | 两经纬度点之间的球面距离（米） | ✅ 已实现 |
 | `bearing(lng1, lat1, lng2, lat2)` | 两点间方位角（度） | ⭐⭐ |
-| `midpoint(lng1, lat1, lng2, lat2)` | 两点中点坐标 | ⭐⭐ |
+| `midpoint(lng1, lat1, lng2, lat2)` | 两点中点坐标 | ✅ 已实现 |
 | `boundingBox(positions)` | 多点包围盒 `{ west, south, east, north }` | ⭐⭐ |
 
 ### ② 相机查询
