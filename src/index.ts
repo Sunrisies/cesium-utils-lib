@@ -33,3 +33,6 @@ export type {
 // ===== 相机查询 =====
 export { getCameraHeight } from "./camera"
 
+// ===== 距离测量 =====
+export { distance } from "./measure"
+
