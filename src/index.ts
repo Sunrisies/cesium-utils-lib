@@ -36,3 +36,6 @@ export { getCameraHeight } from "./camera"
 // ===== 距离测量 =====
 export { distance, midpoint } from "./measure"
 
+// ===== 场景交互 =====
+export { screenshot } from "./screenshot"
+
