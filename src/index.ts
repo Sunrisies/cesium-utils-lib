@@ -31,7 +31,7 @@ export type {
 } from "./billboard"
 
 // ===== 相机查询 =====
-export { getCameraHeight } from "./camera"
+export { getCameraHeight, cartesianToScreen } from "./camera"
 
 // ===== 距离测量 =====
 export { distance, midpoint } from "./measure"

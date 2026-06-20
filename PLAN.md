@@ -1,11 +1,11 @@
 # 开发计划
 
-## 当前版本（13 函数）
+## 当前版本（14 函数）
 
 ```
 坐标转换      getLonLat / getLonLatByCartesian
 相机控制      flyTo / setView / flyToPositions
-相机查询      getCameraHeight
+相机查询      getCameraHeight / cartesianToScreen
 距离测量      distance / midpoint
 场景交互      screenshot
 变换矩阵      calculateLocationMatrix
@@ -23,7 +23,7 @@
 | `screenshot(viewer)` | 截取当前场景为图片（含高清倍率、自动下载） | ✅ 已实现 |
 | `getEntitiesUnderMouse(viewer, position)` | 鼠标位置拾取所有 Entity | ⭐⭐⭐ |
 | `screenToCartesian(viewer, screenPos, depth?)` | 屏幕坐标 → 三维坐标（可指定深度） | ⭐⭐⭐ |
-| `cartesianToScreen(viewer, cartesian)` | 三维坐标 → 屏幕像素坐标 | ⭐⭐ |
+| `cartesianToScreen(viewer, cartesian)` | 三维坐标 → 屏幕像素坐标 | ✅ 已实现 |
 
 ### 几何计算
 
