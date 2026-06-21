@@ -1,6 +1,6 @@
 # 开发计划
 
-## 当前版本（14 函数）
+## 当前版本（15 函数）
 
 ```
 坐标转换      getLonLat / getLonLatByCartesian
@@ -8,6 +8,7 @@
 相机查询      getCameraHeight / cartesianToScreen
 距离测量      distance / midpoint
 场景交互      screenshot
+可视化特效     createScanCircle
 变换矩阵      calculateLocationMatrix
 标记/标签     createPinImage / createBillboardEntity / createLabelEntity
 ```
@@ -41,7 +42,7 @@
 | `createRadarScan(viewer, center, radius)` | 雷达扫描圈效果（动态纹理旋转） | ⭐⭐⭐⭐ |
 | `createFlowLine(positions, color?)` | 流动线效果（动态纹理偏移） | ⭐⭐⭐⭐ |
 | `createFence(positions, height, color?)` | 围栏/拉伸体可视化 | ⭐⭐⭐ |
-| `createScanCircle(viewer, center, radius, options?)` | 扩散扫描圆环动画 | ⭐⭐⭐⭐ |
+| `createScanCircle(viewer, center, radius, options?)` | 扩散扫描圆环动画 | ✅ 已实现 |
 
 ### 3D Tiles
 

@@ -39,3 +39,7 @@ export { distance, midpoint } from "./measure"
 // ===== 场景交互 =====
 export { screenshot } from "./screenshot"
 
+// ===== 可视化特效 =====
+export { createScanCircle } from "./effects"
+export type { ScanCircleOptions } from "./effects"
+
