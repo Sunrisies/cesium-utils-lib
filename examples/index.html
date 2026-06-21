@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cesium-utils-lib 示例</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: #0b0e17; color: #e0e0e0; min-height: 100vh; }
+    .container { max-width: 800px; margin: 0 auto; padding: 48px 24px; }
+    h1 { font-size: 28px; margin-bottom: 8px; color: #fff; }
+    p { color: #8a8f9d; margin-bottom: 32px; }
+    .list { display: flex; flex-direction: column; gap: 12px; }
+    a {
+      display: block; padding: 16px 20px; background: #151a28;
+      border-radius: 8px; text-decoration: none; color: #e0e0e0;
+      border: 1px solid #1f2640; transition: all 0.2s;
+    }
+    a:hover { border-color: #3b82f6; background: #1a2140; transform: translateX(4px); }
+    .num { color: #3b82f6; font-weight: 600; margin-right: 12px; }
+    .desc { font-size: 13px; color: #6b7280; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📦 cesium-utils-lib 示例</h1>
+    <p>每个示例是一个独立的 HTML 文件，可直接打开或通过 <code>npx vite examples --open</code> 运行</p>
+    <div class="list">
+      <a href="01-get-lonlat.html">
+        <span class="num">01</span> 鼠标点击获取经纬度
+        <div class="desc">getLonLat — 点击地图任意位置，显示经纬度与高度</div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

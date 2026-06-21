@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>01 - 鼠标点击获取经纬度 | cesium-utils-lib</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+    }
+
+    #cesiumContainer {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 坐标信息面板 */
+    #infoPanel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 999;
+      background: rgba(11, 14, 23, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 12px;
+      padding: 16px 20px;
+      min-width: 220px;
+      color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      transition: opacity 0.3s;
+    }
+
+    #infoPanel .label {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+
+    #infoPanel .label:first-child {
+      margin-top: 0;
+    }
+
+    #infoPanel .value {
+      font-size: 18px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #infoPanel .value.lon {
+      color: #60a5fa;
+    }
+
+    #infoPanel .value.lat {
+      color: #34d399;
+    }
+
+    #infoPanel .value.height {
+      color: #fbbf24;
+    }
+
+    #infoPanel .hint {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #1f2640;
+    }
+
+    #infoPanel .status-null {
+      color: #ef4444;
+      font-size: 14px;
+    }
+
+    #infoPanel .status-ok {
+      color: #34d399;
+      font-size: 14px;
+    }
+
+    /* 顶部提示 */
+    #tip {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      background: rgba(11, 14, 23, 0.8);
+      backdrop-filter: blur(4px);
+      padding: 10px 20px;
+      border-radius: 8px;
+      color: #8a8f9d;
+      font-size: 14px;
+      border: 1px solid #1f2640;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <!-- 坐标信息面板 -->
+  <div id="infoPanel">
+    <div class="label">经度 (Lon)</div>
+    <div class="value lon" id="lonValue">—</div>
+    <div class="label">纬度 (Lat)</div>
+    <div class="value lat" id="latValue">—</div>
+    <div class="label">高度 (Height)</div>
+    <div class="value height" id="heightValue">—</div>
+    <div class="hint">
+      <span id="statusText" class="status-ok">就绪</span>
+      — 点击地图任意位置
+    </div>
+  </div>
+
+  <div id="tip">🖱️ 点击地图任意位置获取经纬度坐标</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. 设置 Cesium Ion Token（替换为你自己的 Token）
+    //    注册：https://ion.cesium.com/signup
+    // ══════════════════════════════════════════════════
+    import * as Cesium from "cesium"
+    import "cesium/Build/Cesium/Widgets/widgets.css"
+    // 从 .env 读取 Token（通过 Vite 注入到 import.meta.env）
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { getLonLat } from "../src/index.ts"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化 Cesium Viewer
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false,
+      timeline: false,
+      baseLayerPicker: false,
+      infoBox: false,
+      selectionIndicator: false,
+    })
+
+    // 飞到北京
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(116.39, 39.91, 200000),
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 注册点击事件 — 使用 getLonLat
+    // ══════════════════════════════════════════════════
+    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+
+    handler.setInputAction((event) => {
+      const pos = getLonLat(viewer, event.position)
+
+      const lonEl = document.getElementById("lonValue")
+      const latEl = document.getElementById("latValue")
+      const heightEl = document.getElementById("heightValue")
+      const statusEl = document.getElementById("statusText")
+
+      if (pos) {
+        lonEl.textContent = pos.Lon.toFixed(6) + "°"
+        latEl.textContent = pos.Lat.toFixed(6) + "°"
+        heightEl.textContent = (pos.Height ?? 0).toFixed(1) + " m"
+        statusEl.textContent = "✅ 拾取成功"
+        statusEl.className = "status-ok"
+      } else {
+        lonEl.textContent = "—"
+        latEl.textContent = "—"
+        heightEl.textContent = "—"
+        statusEl.textContent = "⚠️ 点击位置无地形/模型（拾取返回 null）"
+        statusEl.className = "status-null"
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+  </script>
+</body>
+
+</html>

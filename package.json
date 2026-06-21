@@ -22,7 +22,8 @@
     "docs:gen": "typedoc && bun run scripts/i18n-docs.mjs",
     "docs:dev": "typedoc && bun run scripts/i18n-docs.mjs && vitepress dev docs",
     "docs:build": "typedoc && bun run scripts/i18n-docs.mjs && vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "examples": "vite examples --open"
   },
   "peerDependencies": {
     "cesium": "^1.100.0"
@@ -33,6 +34,7 @@
     "typedoc": "^0.28.19",
     "typedoc-plugin-markdown": "^4.12.0",
     "typescript": "^5.0.0",
+    "vite": "^8.1.0",
     "vitepress": "^1.6.4"
   }
 }
