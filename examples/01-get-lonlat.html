@@ -5,6 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>01 - 鼠标点击获取经纬度 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
     * {
       margin: 0;
@@ -132,15 +134,13 @@
     // 1. 设置 Cesium Ion Token（替换为你自己的 Token）
     //    注册：https://ion.cesium.com/signup
     // ══════════════════════════════════════════════════
-    import * as Cesium from "cesium"
-    import "cesium/Build/Cesium/Widgets/widgets.css"
     // 从 .env 读取 Token（通过 Vite 注入到 import.meta.env）
     Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
 
     // ══════════════════════════════════════════════════
-    // 2. 引入库函数
+    // 2. 引入打包后的库函数（从 dist/ 而非 src/）
     // ══════════════════════════════════════════════════
-    import { getLonLat } from "../src/index.ts"
+    import { getLonLat } from "../dist/index.js"
 
     // ══════════════════════════════════════════════════
     // 3. 初始化 Cesium Viewer
