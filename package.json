@@ -26,10 +26,10 @@
     "examples": "vite examples --open"
   },
   "peerDependencies": {
-    "cesium": "^1.100.0"
+    "cesium": "^1.140.0"
   },
   "devDependencies": {
-    "cesium": "^1.100.0",
+    "cesium": "^1.140.0",
     "tsup": "^8.0.0",
     "typedoc": "^0.28.19",
     "typedoc-plugin-markdown": "^4.12.0",
