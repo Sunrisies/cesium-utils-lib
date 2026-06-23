@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>02 - 三维坐标转屏幕坐标 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #cesiumContainer { width: 100%; height: 100%; }
+
+    /* 坐标面板 */
+    #infoPanel {
+      position: fixed; top: 20px; right: 20px; z-index: 999;
+      background: rgba(11, 14, 23, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;
+      padding: 16px 20px; min-width: 240px; color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #infoPanel .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+    #infoPanel .label { font-size: 12px; color: #6b7280; margin-top: 6px; }
+    #infoPanel .label:first-of-type { margin-top: 0; }
+    #infoPanel .value { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    #infoPanel .value.x { color: #60a5fa; }
+    #infoPanel .value.y { color: #34d399; }
+    #infoPanel .hint { font-size: 13px; color: #6b7280; margin-top: 12px; padding-top: 12px; border-top: 1px solid #1f2640; }
+
+    /* 跟随标签 */
+    .follow-label {
+      position: fixed; z-index: 998; pointer-events: none;
+      background: rgba(11, 14, 23, 0.85); backdrop-filter: blur(4px);
+      border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 6px;
+      padding: 4px 10px; font-size: 13px; color: #fff;
+      white-space: nowrap; transform: translate(-50%, -100%);
+      transition: opacity 0.15s;
+    }
+    .follow-label .city { font-weight: 600; }
+    .follow-label .coord { color: #8a8f9d; font-size: 11px; margin-left: 6px; }
+
+    /* 顶部提示 */
+    #tip {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999;
+      background: rgba(11, 14, 23, 0.8); backdrop-filter: blur(4px);
+      padding: 10px 20px; border-radius: 8px; color: #8a8f9d; font-size: 14px;
+      border: 1px solid #1f2640; pointer-events: none; white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <!-- 坐标信息面板 -->
+  <div id="infoPanel">
+    <div class="title">📍 北京 — 屏幕坐标</div>
+    <div class="label">屏幕 X</div>
+    <div class="value x" id="screenX">—</div>
+    <div class="label">屏幕 Y</div>
+    <div class="value y" id="screenY">—</div>
+    <div class="hint">🔄 拖拽旋转地图，观察标签跟随和坐标变化</div>
+  </div>
+
+  <!-- 跟随标签由 JS 动态生成 -->
+
+  <div id="tip">🔄 拖拽/缩放地图 — 标签实时跟随三维位置</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. 设置 Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { cartesianToScreen } from "../dist/index.js"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化 Viewer
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false,
+      timeline: false,
+      baseLayerPicker: false,
+      infoBox: false,
+      selectionIndicator: false,
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 在城市位置添加标记
+    // ══════════════════════════════════════════════════
+    const cities = [
+      { name: "北京", lng: 116.39, lat: 39.91, color: "#60a5fa" },
+      { name: "上海", lng: 121.47, lat: 31.23, color: "#34d399" },
+      { name: "广州", lng: 113.26, lat: 23.13, color: "#fbbf24" },
+      { name: "成都", lng: 104.07, lat: 30.57, color: "#f472b6" },
+    ]
+
+    // 存储每个城市的：三维坐标 + DOM 标签
+    const markers = cities.map(({ name, lng, lat, color }) => {
+      const position = Cesium.Cartesian3.fromDegrees(lng, lat, 0)
+
+      // 添加 3D 点标记
+      viewer.entities.add({
+        position,
+        point: {
+          color: Cesium.Color.fromCssColorString(color),
+          pixelSize: 10,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        },
+      })
+
+      // 创建跟随标签 DOM
+      const el = document.createElement("div")
+      el.className = "follow-label"
+      el.style.borderColor = color
+      el.innerHTML = `<span class="city" style="color:${color}">${name}</span>`
+      document.body.appendChild(el)
+
+      return { name, position, el, color }
+    })
+
+    // ══════════════════════════════════════════════════
+    // 5. 每帧更新标签位置（核心演示）
+    // ══════════════════════════════════════════════════
+    viewer.scene.postRender.addEventListener(() => {
+      for (const marker of markers) {
+        const screenPos = cartesianToScreen(viewer, marker.position)
+
+        if (screenPos) {
+          marker.el.style.display = "block"
+          marker.el.style.left = screenPos.x + "px"
+          marker.el.style.top = (screenPos.y - 12) + "px"
+
+          // 北京坐标同步到面板
+          if (marker.name === "北京") {
+            document.getElementById("screenX").textContent = Math.round(screenPos.x) + " px"
+            document.getElementById("screenY").textContent = Math.round(screenPos.y) + " px"
+          }
+        } else {
+          marker.el.style.display = "none"
+        }
+      }
+    })
+
+    // ══════════════════════════════════════════════════
+    // 6. 飞至中国范围
+    // ══════════════════════════════════════════════════
+    viewer.camera.flyTo({
+      destination: Cesium.Rectangle.fromDegrees(100, 20, 125, 42),
+      orientation: { heading: 0, pitch: Cesium.Math.toRadians(-60), roll: 0 },
+    })
+  </script>
+</body>
+
+</html>
