@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>03 - 距离测量与中点 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #cesiumContainer { width: 100%; height: 100%; }
+
+    /* 测量面板 */
+    #infoPanel {
+      position: fixed; top: 20px; right: 20px; z-index: 999;
+      background: rgba(11, 14, 23, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;
+      padding: 16px 20px; min-width: 240px; color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #infoPanel .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+    #infoPanel .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1f2640; }
+    #infoPanel .row:last-of-type { border-bottom: none; }
+    #infoPanel .row .lbl { font-size: 13px; color: #6b7280; }
+    #infoPanel .row .val { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    #infoPanel .row .val.dist { color: #fbbf24; }
+    #infoPanel .row .val.mid { color: #60a5fa; }
+    #infoPanel .hint { font-size: 13px; color: #6b7280; margin-top: 12px; padding-top: 12px; border-top: 1px solid #1f2640; }
+    #infoPanel .step { font-size: 13px; color: #8a8f9d; margin-top: 4px; }
+
+    /* 操作提示 */
+    #statusBar {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999;
+      background: rgba(11, 14, 23, 0.8); backdrop-filter: blur(4px);
+      padding: 10px 24px; border-radius: 8px; color: #8a8f9d; font-size: 14px;
+      border: 1px solid #1f2640; pointer-events: none; white-space: nowrap;
+    }
+
+    /* 清除按钮 */
+    #clearBtn {
+      position: fixed; top: 20px; left: 20px; z-index: 999;
+      background: rgba(239, 68, 68, 0.9); border: none; border-radius: 8px;
+      padding: 8px 16px; color: #fff; font-size: 13px; cursor: pointer;
+      transition: background 0.2s; display: none;
+    }
+    #clearBtn:hover { background: rgba(220, 38, 38, 1); }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <!-- 测量面板 -->
+  <div id="infoPanel">
+    <div class="title">📏 距离测量</div>
+    <div class="row">
+      <span class="lbl">起点</span>
+      <span class="val" id="startCoord" style="color:#60a5fa">—</span>
+    </div>
+    <div class="row">
+      <span class="lbl">终点</span>
+      <span class="val" id="endCoord" style="color:#34d399">—</span>
+    </div>
+    <div class="row">
+      <span class="lbl">球面距离</span>
+      <span class="val dist" id="distanceVal">—</span>
+    </div>
+    <div class="row">
+      <span class="lbl">中点坐标</span>
+      <span class="val mid" id="midpointVal">—</span>
+    </div>
+    <div class="hint">🖱️ 点击地图选起点 → 再点选终点</div>
+    <div class="step" id="stepHint">第 1 步：点击选择起点</div>
+  </div>
+
+  <button id="clearBtn">🗑️ 清除</button>
+  <div id="statusBar">🖱️ 点击地图上两个位置，测量距离和中点</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { getLonLat, distance, midpoint } from "../dist/index.js"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false, timeline: false,
+      baseLayerPicker: false, infoBox: false, selectionIndicator: false,
+    })
+
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(116.39, 39.91, 500000),
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 测量状态
+    // ══════════════════════════════════════════════════
+    let startPoint = null  // { lng, lat }
+    let endPoint = null    // { lng, lat }
+    let markerEntities = [] // 用于清除的 entity 列表
+
+    const startCoordEl = document.getElementById("startCoord")
+    const endCoordEl = document.getElementById("endCoord")
+    const distanceEl = document.getElementById("distanceVal")
+    const midpointEl = document.getElementById("midpointVal")
+    const stepHintEl = document.getElementById("stepHint")
+    const clearBtn = document.getElementById("clearBtn")
+
+    // ══════════════════════════════════════════════════
+    // 5. 点击事件
+    // ══════════════════════════════════════════════════
+    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+
+    handler.setInputAction((event) => {
+      const pos = getLonLat(viewer, event.position)
+      if (!pos) return
+
+      const coord = { lng: pos.Lon, lat: pos.Lat }
+
+      if (!startPoint) {
+        // ---- 第 1 次点击：起点 ----
+        startPoint = coord
+        startCoordEl.textContent = `${coord.lng.toFixed(4)}, ${coord.lat.toFixed(4)}`
+        stepHintEl.textContent = "第 2 步：点击选择终点"
+        clearBtn.style.display = "block"
+
+        // 画起点标记
+        addMarker(coord, "#60a5fa", "起点")
+      } else if (!endPoint) {
+        // ---- 第 2 次点击：终点 ----
+        endPoint = coord
+        endCoordEl.textContent = `${coord.lng.toFixed(4)}, ${coord.lat.toFixed(4)}`
+
+        // 计算
+        const dist = distance(startPoint.lng, startPoint.lat, endPoint.lng, endPoint.lat)
+        const mid = midpoint(startPoint.lng, startPoint.lat, endPoint.lng, endPoint.lat)
+
+        // 显示结果
+        if (dist >= 1000) {
+          distanceEl.textContent = `${(dist / 1000).toFixed(2)} 公里`
+        } else {
+          distanceEl.textContent = `${dist.toFixed(1)} 米`
+        }
+        midpointEl.textContent = `${mid.lng.toFixed(4)}, ${mid.lat.toFixed(4)}`
+
+        // 画终点 + 连线 + 中点
+        addMarker(coord, "#34d399", "终点")
+        addLine(startPoint, endPoint)
+        addMidMarker(mid, "#fbbf24")
+
+        stepHintEl.textContent = "✅ 测量完成，点击"清除"重新测量"
+        clearBtn.textContent = "🗑️ 重新测量"
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+
+    // ══════════════════════════════════════════════════
+    // 6. 辅助：添加标记、连线、中点
+    // ══════════════════════════════════════════════════
+    function addMarker({ lng, lat }, color, label) {
+      const entity = viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(lng, lat),
+        point: {
+          color: Cesium.Color.fromCssColorString(color),
+          pixelSize: 12,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        },
+        label: {
+          text: label,
+          font: "14px sans-serif",
+          fillColor: Cesium.Color.fromCssColorString(color),
+          pixelOffset: new Cesium.Cartesian2(0, -20),
+          showBackground: true,
+          backgroundColor: new Cesium.Color(0, 0, 0, 0.6),
+        },
+      })
+      markerEntities.push(entity)
+    }
+
+    function addMidMarker({ lng, lat }, color) {
+      const entity = viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(lng, lat),
+        point: {
+          color: Cesium.Color.fromCssColorString(color),
+          pixelSize: 10,
+          outlineWidth: 2,
+          outlineColor: Cesium.Color.WHITE,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        },
+        label: {
+          text: "中点",
+          font: "13px sans-serif",
+          fillColor: Cesium.Color.fromCssColorString(color),
+          pixelOffset: new Cesium.Cartesian2(0, -18),
+          showBackground: true,
+          backgroundColor: new Cesium.Color(0, 0, 0, 0.6),
+        },
+      })
+      markerEntities.push(entity)
+    }
+
+    function addLine(start, end) {
+      const entity = viewer.entities.add({
+        polyline: {
+          positions: [
+            Cesium.Cartesian3.fromDegrees(start.lng, start.lat),
+            Cesium.Cartesian3.fromDegrees(end.lng, end.lat),
+          ],
+          width: 2,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: Cesium.Color.fromCssColorString("rgba(255, 255, 255, 0.6)"),
+          }),
+          clampToGround: true,
+        },
+      })
+      markerEntities.push(entity)
+    }
+
+    // ══════════════════════════════════════════════════
+    // 7. 清除
+    // ══════════════════════════════════════════════════
+    clearBtn.addEventListener("click", () => {
+      markerEntities.forEach((e) => viewer.entities.remove(e))
+      markerEntities = []
+      startPoint = null
+      endPoint = null
+      startCoordEl.textContent = "—"
+      endCoordEl.textContent = "—"
+      distanceEl.textContent = "—"
+      midpointEl.textContent = "—"
+      stepHintEl.textContent = "第 1 步：点击选择起点"
+      clearBtn.style.display = "none"
+      clearBtn.textContent = "🗑️ 清除"
+    })
+  </script>
+</body>
+
+</html>
