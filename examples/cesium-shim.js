@@ -14,6 +14,8 @@ export const {
   Cartesian3,
   Cartographic,
   Color,
+  ColorMaterialProperty,
+  ConstantProperty,
   EllipseGraphics,
   EllipsoidGeodesic,
   Entity,

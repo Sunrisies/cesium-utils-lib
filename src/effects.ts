@@ -2,6 +2,8 @@ import {
   Cartesian3,
   CallbackProperty,
   Color,
+  ColorMaterialProperty,
+  ConstantProperty,
   EllipseGraphics,
   Entity,
   JulianDate,
@@ -17,19 +19,19 @@ export interface ScanCircleOptions {
   duration?: number
   /** 多环间隔（秒），0 为单环，默认 1.5 */
   interval?: number
-  /** 最大不透明度 0~1，默认 0.6 */
+  /** 最大不透明度 0~1，默认 0.8 */
   maxOpacity?: number
   /** 离地高度（米），默认 0 */
   height?: number
-  /** 描边宽度，默认 2 */
-  lineWidth?: number
+  /** 是否显示描边线，默认 false */
+  showOutline?: boolean
 }
 
 /**
  * 创建扩散扫描圆环动画
  *
- * 生成从中心向外扩散的半透明圆环动画。
- * 环从圆心逐渐扩大至指定半径，同时透明度递减，到达后重置。
+ * 以填充面从中心向外扩散的雷达波效果。
+ * 圆面从圆心逐渐扩大至指定半径，同时透明度递减，到达后重置。
  * 设置 interval > 0 可产生多环交替扩散的连续效果。
  *
  * @param viewer - Cesium Viewer 实例
@@ -47,7 +49,6 @@ export interface ScanCircleOptions {
  *   radius: 2000,
  *   duration: 4,
  *   interval: 1.5,
- *   maxOpacity: 0.5
  * })
  */
 export const createScanCircle = (
@@ -61,42 +62,51 @@ export const createScanCircle = (
     radius = 1000,
     duration = 3,
     interval = 1.5,
-    maxOpacity = 0.6,
+    maxOpacity = 0.8,
     height = 0,
-    lineWidth = 2,
+    showOutline = false,
   } = options ?? {}
 
   const baseColor = typeof color === "string" ? Color.fromCssColorString(color) : color.clone()
-  const position = Cartesian3.fromDegrees(lng, lat, height)
+  const position = Cartesian3.fromDegrees(lng, lat, 0)
   const ringCount = interval > 0 ? Math.max(1, Math.floor(duration / interval)) : 1
   const startTime = viewer.clock.currentTime
-
-  const createRadius = (phase: number) =>
-    new CallbackProperty(() => {
-      const now = viewer.clock.currentTime
-      const t = ((JulianDate.secondsDifference(now, startTime) + phase) % duration) / duration
-      return t * radius
-    }, false)
-
-  const createColorProp = (phase: number) =>
-    new CallbackProperty(() => {
-      const now = viewer.clock.currentTime
-      const t = ((JulianDate.secondsDifference(now, startTime) + phase) % duration) / duration
-      return baseColor.withAlpha(baseColor.alpha * Math.max(0, maxOpacity * (1 - t * t)))
-    }, false)
+  viewer.clock.shouldAnimate = true
 
   const entities: Entity[] = []
 
   for (let i = 0; i < ringCount; i++) {
-    const p = i * interval
+    const phase = i * interval
+
     const ellipse = new EllipseGraphics() as any
-    ellipse.semiMajorAxis = createRadius(p)
-    ellipse.semiMinorAxis = createRadius(p)
-    ellipse.color = createColorProp(p)
-    ellipse.outline = true
-    ellipse.outlineColor = createColorProp(p)
-    ellipse.outlineWidth = lineWidth
-    ellipse.height = height
+    // 填充面：面积极小→极大，透明度 maxOpacity→0
+    ellipse.semiMajorAxis = new CallbackProperty(() => {
+      const t = getProgress(viewer, startTime, phase, duration)
+      return t * radius + 0.1 // 最小 0.1m 避免零值
+    }, false)
+    ellipse.semiMinorAxis = new CallbackProperty(() => {
+      const t = getProgress(viewer, startTime, phase, duration)
+      return t * radius + 0.1
+    }, false)
+    ellipse.material = new ColorMaterialProperty(
+      new CallbackProperty(() => {
+        const t = getProgress(viewer, startTime, phase, duration)
+        const opacity = Math.max(0, maxOpacity * (1 - t * t))
+        return baseColor.withAlpha(baseColor.alpha * opacity)
+      }, false)
+    )
+
+    // 可选描边（默认关闭）
+    if (showOutline) {
+      ellipse.outline = new ConstantProperty(true)
+      ellipse.outlineColor = new CallbackProperty(() => {
+        const t = getProgress(viewer, startTime, phase, duration)
+        return baseColor.withAlpha(baseColor.alpha * Math.max(0, maxOpacity * (1 - t)))
+      }, false)
+      ellipse.outlineWidth = new ConstantProperty(2)
+    }
+
+    ellipse.height = new ConstantProperty(height)
 
     const entity = new Entity({ position, ellipse })
     viewer.entities.add(entity)
@@ -104,4 +114,14 @@ export const createScanCircle = (
   }
 
   return entities
+}
+
+function getProgress(
+  viewer: Viewer,
+  startTime: JulianDate,
+  phase: number,
+  duration: number
+): number {
+  const now = viewer.clock.currentTime
+  return ((JulianDate.secondsDifference(now, startTime) + phase) % duration) / duration
 }

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>04 - 扩散扫描圆环 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #cesiumContainer { width: 100%; height: 100%; }
+
+    /* 控制面板 */
+    #panel {
+      position: fixed; top: 20px; right: 20px; z-index: 999;
+      background: rgba(11, 14, 23, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;
+      padding: 16px 20px; min-width: 220px; color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #panel .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+    #panel .field { margin-bottom: 10px; }
+    #panel .field label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+    #panel .field input[type="color"] {
+      width: 100%; height: 32px; border: 1px solid #1f2640; border-radius: 6px;
+      background: transparent; cursor: pointer; padding: 2px;
+    }
+    #panel .field input[type="range"] { width: 100%; accent-color: #3b82f6; }
+    #panel .field .range-val { font-size: 13px; color: #8a8f9d; float: right; }
+    #panel .actions { display: flex; gap: 8px; margin-top: 12px; }
+    #panel .actions button {
+      flex: 1; padding: 8px 0; border: none; border-radius: 6px;
+      font-size: 13px; cursor: pointer; transition: opacity 0.2s;
+    }
+    #panel .actions button:hover { opacity: 0.85; }
+    #btnStart { background: #3b82f6; color: #fff; }
+    #btnStop { background: #ef4444; color: #fff; }
+    #panel .hint { font-size: 12px; color: #6b7280; margin-top: 10px; padding-top: 10px; border-top: 1px solid #1f2640; }
+
+    /* 状态提示 */
+    #statusBar {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999;
+      background: rgba(11, 14, 23, 0.8); backdrop-filter: blur(4px);
+      padding: 10px 24px; border-radius: 8px; color: #8a8f9d; font-size: 14px;
+      border: 1px solid #1f2640; pointer-events: none; white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <!-- 控制面板 -->
+  <div id="panel">
+    <div class="title">📡 扩散扫描圆环</div>
+
+    <div class="field">
+      <label>颜色 <span class="range-val" id="colorVal">#00FFAA</span></label>
+      <input type="color" id="colorPicker" value="#00FFAA" />
+    </div>
+
+    <div class="field">
+      <label>半径 <span class="range-val" id="radiusVal">1000 m</span></label>
+      <input type="range" id="radiusRange" min="200" max="5000" step="100" value="1000" />
+    </div>
+
+    <div class="field">
+      <label>扩散速度 <span class="range-val" id="speedVal">3 s</span></label>
+      <input type="range" id="speedRange" min="1" max="8" step="0.5" value="3" />
+    </div>
+
+    <div class="field">
+      <label>多环间隔 <span class="range-val" id="intervalVal">1.5 s</span></label>
+      <input type="range" id="intervalRange" min="0" max="4" step="0.5" value="1.5" />
+    </div>
+
+    <div class="actions">
+      <button id="btnStart">▶ 开始扫描</button>
+      <button id="btnStop" disabled>⏹ 停止</button>
+    </div>
+
+    <div class="hint">🔄 调整参数后需重新"开始扫描"</div>
+  </div>
+
+  <div id="statusBar">📡 点击"开始扫描"查看扩散圆环效果</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { createScanCircle } from "../dist/index.js"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false, timeline: false,
+      baseLayerPicker: false, infoBox: false, selectionIndicator: false,
+    })
+
+    // 飞到北京
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(116.39, 39.91, 8000),
+      orientation: { heading: 0, pitch: Cesium.Math.toRadians(-40), roll: 0 },
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 扫描状态
+    // ══════════════════════════════════════════════════
+    const center = { lng: 116.39, lat: 39.91 }
+    let scanEntities = []
+
+    // ══════════════════════════════════════════════════
+    // 5. 控件
+    // ══════════════════════════════════════════════════
+    const colorPicker = document.getElementById("colorPicker")
+    const radiusRange = document.getElementById("radiusRange")
+    const speedRange = document.getElementById("speedRange")
+    const intervalRange = document.getElementById("intervalRange")
+    const colorVal = document.getElementById("colorVal")
+    const radiusVal = document.getElementById("radiusVal")
+    const speedVal = document.getElementById("speedVal")
+    const intervalVal = document.getElementById("intervalVal")
+    const btnStart = document.getElementById("btnStart")
+    const btnStop = document.getElementById("btnStop")
+    const statusBar = document.getElementById("statusBar")
+
+    // 重建扫描环（停止 + 立即开始）
+    function restartScan() {
+      if (btnStart.disabled) {
+        // 扫描运行中 → 触发重建
+        scanEntities.forEach((e) => viewer.entities.remove(e))
+        scanEntities = []
+        doStartScan()
+      }
+    }
+
+    // 绑定滑块显示
+    colorPicker.addEventListener("input", () => {
+      colorVal.textContent = colorPicker.value
+      restartScan()
+    })
+    radiusRange.addEventListener("input", () => {
+      radiusVal.textContent = radiusRange.value + " m"
+    })
+    speedRange.addEventListener("input", () => {
+      speedVal.textContent = speedRange.value + " s"
+    })
+    intervalRange.addEventListener("input", () => {
+      intervalVal.textContent = intervalRange.value + " s"
+    })
+    // 滑块松开时重建（避免拖拽过程中频繁重建）
+    radiusRange.addEventListener("change", restartScan)
+    speedRange.addEventListener("change", restartScan)
+    intervalRange.addEventListener("change", restartScan)
+
+    // ══════════════════════════════════════════════════
+    // 6. 开始扫描
+    // ══════════════════════════════════════════════════
+    function doStartScan() {
+      const radius = parseFloat(radiusRange.value)
+      const duration = parseFloat(speedRange.value)
+      const interval = parseFloat(intervalRange.value)
+
+      scanEntities = createScanCircle(viewer, center.lng, center.lat, {
+        color: colorPicker.value,
+        radius,
+        duration,
+        interval,
+        maxOpacity: 0.8,
+      })
+
+      btnStart.disabled = true
+      btnStop.disabled = false
+      statusBar.textContent =
+        `📡 扫描中 · 半径 ${radius}m · 周期 ${duration}s` +
+        (interval > 0 ? ` · ${Math.floor(duration / interval)} 环交替` : "")
+    }
+
+    btnStart.addEventListener("click", () => {
+      scanEntities.forEach((e) => viewer.entities.remove(e))
+      scanEntities = []
+      doStartScan()
+    })
+
+    // ══════════════════════════════════════════════════
+    // 7. 停止扫描
+    // ══════════════════════════════════════════════════
+    btnStop.addEventListener("click", () => {
+      scanEntities.forEach((e) => viewer.entities.remove(e))
+      scanEntities = []
+      btnStart.disabled = false
+      btnStop.disabled = true
+      statusBar.textContent = "⏸ 扫描已停止"
+    })
+  </script>
+</body>
+
+</html>
