@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>05 - 截图工具 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+    }
+
+    #cesiumContainer {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 控制栏 */
+    #toolbar {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: rgba(11, 14, 23, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 12px;
+      padding: 12px 20px;
+      color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    #toolbar .label {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    #toolbar select {
+      background: #1a2140;
+      color: #e0e0e0;
+      border: 1px solid #1f2640;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+
+    #toolbar button {
+      background: #3b82f6;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 18px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    #toolbar button:hover {
+      opacity: 0.85;
+    }
+
+    #toolbar button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #toolbar .status {
+      font-size: 13px;
+      color: #34d399;
+    }
+
+    #toolbar .status.progress {
+      color: #fbbf24;
+    }
+
+    /* 预览浮窗 */
+    #preview {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      display: none;
+      border: 2px solid rgba(59, 130, 246, 0.4);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      max-width: 80vw;
+      max-height: 40vh;
+      background: #0b0e17;
+    }
+
+    #preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* 状态条 */
+    #statusBar {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      background: rgba(11, 14, 23, 0.8);
+      backdrop-filter: blur(4px);
+      padding: 8px 20px;
+      border-radius: 8px;
+      color: #8a8f9d;
+      font-size: 13px;
+      border: 1px solid #1f2640;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <!-- 工具栏 -->
+  <div id="toolbar">
+    <span class="label">🎯 截图</span>
+    <select id="scaleSelect">
+      <option value="1">普通 1x</option>
+      <option value="2" selected>高清 2x</option>
+      <option value="3">超清 3x</option>
+    </select>
+    <select id="formatSelect">
+      <option value="png">PNG</option>
+      <option value="jpeg">JPEG</option>
+    </select>
+    <button id="btnCapture">📷 截图</button>
+    <button id="btnDownload" disabled>💾 下载</button>
+    <span class="status" id="statusText">就绪</span>
+  </div>
+
+  <!-- 预览 -->
+  <div id="preview"><img id="previewImg" /></div>
+
+  <div id="statusBar">📷 点击"截图"捕捉当前场景，支持高清倍率</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { screenshot } from "../dist/index.js"
+    // ══════════════════════════════════════════════════
+    // 3. 初始化
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false, timeline: false,
+      baseLayerPicker: false,
+    })
+
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(116.39, 39.91, 300000),
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 截图逻辑
+    // ══════════════════════════════════════════════════
+    let lastDataUrl = null
+
+    const btnCapture = document.getElementById("btnCapture")
+    const btnDownload = document.getElementById("btnDownload")
+    const statusText = document.getElementById("statusText")
+    const scaleSelect = document.getElementById("scaleSelect")
+    const formatSelect = document.getElementById("formatSelect")
+    const preview = document.getElementById("preview")
+    const previewImg = document.getElementById("previewImg")
+
+    btnCapture.addEventListener("click", () => {
+      const scale = parseFloat(scaleSelect.value)
+      const format = formatSelect.value
+
+      statusText.textContent = "⏳ 截图中..."
+      statusText.className = "status progress"
+      btnCapture.disabled = true
+
+      // 使用 requestAnimationFrame 确保渲染完成
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            const dataUrl = screenshot(viewer, {
+              scale,
+              format,
+              quality: 0.95,
+            })
+            lastDataUrl = dataUrl
+
+            // 预览
+            previewImg.src = dataUrl
+            preview.style.display = "block"
+
+            // 自动隐藏预览（3 秒后）
+            clearTimeout(preview._timer)
+            preview._timer = setTimeout(() => {
+              preview.style.display = "none"
+            }, 3000)
+
+            statusText.textContent = `✅ 截图完成 (${scale}x · ${(dataUrl.length * 0.75 / 1024).toFixed(0)} KB)`
+            statusText.className = "status"
+            btnDownload.disabled = false
+          } catch (err) {
+            statusText.textContent = "❌ 截图失败: " + err.message
+            statusText.className = "status"
+          } finally {
+            btnCapture.disabled = false
+          }
+        })
+      })
+    })
+
+    // 下载
+    btnDownload.addEventListener("click", () => {
+      if (!lastDataUrl) return
+      const format = formatSelect.value
+      screenshot(viewer, {
+        scale: parseFloat(scaleSelect.value),
+        format,
+        quality: 0.95,
+        download: true,
+        filename: `cesium-${new Date().toISOString().slice(0, 19).replace(/[:-]/g, "")}`,
+      })
+    })
+
+    // 点击预览关闭
+    preview.addEventListener("click", () => {
+      preview.style.display = "none"
+    })
+  </script>
+</body>
+
+</html>
