@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>07 - 多点视野飞行 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #cesiumContainer { width: 100%; height: 100%; }
+
+    /* 侧边面板 */
+    #panel {
+      position: fixed; top: 20px; right: 20px; z-index: 999;
+      background: rgba(11, 14, 23, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;
+      padding: 16px 20px; min-width: 210px; color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #panel .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+    #panel .group { margin-bottom: 12px; }
+    #panel .group .g-title { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+    #panel .group button {
+      display: block; width: 100%; padding: 8px 0; margin-bottom: 6px;
+      border: 1px solid #1f2640; border-radius: 6px; background: #151a28;
+      color: #e0e0e0; font-size: 13px; cursor: pointer; transition: all 0.15s;
+      text-align: left; padding-left: 12px;
+    }
+    #panel .group button:hover { background: #1a2140; border-color: #3b82f6; }
+    #panel .group button .num { color: #3b82f6; font-weight: 600; margin-right: 8px; }
+    #panel .group button .tag {
+      float: right; font-size: 11px; padding: 1px 6px; border-radius: 4px;
+      background: rgba(59,130,246,0.2); color: #60a5fa;
+    }
+    #panel .actions { display: flex; gap: 8px; }
+    #panel .actions button {
+      flex: 1; padding: 8px 0; border: none; border-radius: 6px;
+      font-size: 13px; cursor: pointer; transition: opacity 0.2s;
+    }
+    #panel .actions button:hover { opacity: 0.85; }
+    #btnClear { background: #6b7280; color: #fff; }
+    #statusBar {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999;
+      background: rgba(11, 14, 23, 0.8); backdrop-filter: blur(4px);
+      padding: 10px 24px; border-radius: 8px; color: #8a8f9d; font-size: 14px;
+      border: 1px solid #1f2640; pointer-events: none; white-space: nowrap;
+    }
+
+    /* 弹窗 */
+    #modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 1000; display: none; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+    }
+    #modal.show { display: flex; }
+    #modal .box {
+      background: rgba(11, 14, 23, 0.96); border: 1px solid rgba(59,130,246,0.4);
+      border-radius: 14px; padding: 20px 24px; min-width: 300px; max-width: 400px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.6); color: #e0e0e0;
+    }
+    #modal .box h3 { font-size: 16px; color: #fff; margin-bottom: 4px; }
+    #modal .box .sub { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
+    #modal .box .city-list { max-height: 300px; overflow-y: auto; }
+    #modal .box .city-list::-webkit-scrollbar { width: 4px; }
+    #modal .box .city-list::-webkit-scrollbar-thumb { background: #1f2640; border-radius: 2px; }
+    #modal .box .city-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 12px; border-bottom: 1px solid #1a2140; font-size: 14px;
+      cursor: pointer; border-radius: 6px; transition: background 0.15s;
+    }
+    #modal .box .city-item:hover { background: #1a2140; }
+    #modal .box .city-item .ci { color: #e0e0e0; font-weight: 500; }
+    #modal .box .city-item .co { color: #60a5fa; font-size: 12px; font-variant-numeric: tabular-nums; }
+    #modal .box .city-item .arrow { color: #3b82f6; font-size: 16px; opacity: 0; transition: opacity 0.15s; }
+    #modal .box .city-item:hover .arrow { opacity: 1; }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <!-- 侧边面板 -->
+  <div id="panel">
+    <div class="title">✈️ 多点视野飞行</div>
+    <div class="group">
+      <div class="g-title">预设航线</div>
+      <button onclick="showRoute('china')">
+        <span class="num">🏯</span> 中国主要城市
+        <span class="tag">8 点</span>
+      </button>
+      <button onclick="showRoute('world')">
+        <span class="num">🌍</span> 世界首都
+        <span class="tag">6 点</span>
+      </button>
+      <button onclick="setCustomMode()">
+        <span class="num">📌</span> 手动点选
+        <span class="tag">点击地图</span>
+      </button>
+    </div>
+    <div class="actions">
+      <button id="btnClear">🗑️ 清除</button>
+    </div>
+  </div>
+
+  <!-- 弹窗 -->
+  <div id="modal">
+    <div class="box">
+      <h3 id="modalTitle">航线名称</h3>
+      <div class="sub" id="modalSub">点击城市直接跳转</div>
+      <div class="city-list" id="modalList"></div>
+    </div>
+  </div>
+
+  <div id="statusBar">点击预设航线查看详情，确认后飞至全部航点</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { flyToPositions } from "../dist/index.js"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false, timeline: false,
+      baseLayerPicker: false, infoBox: false, selectionIndicator: false,
+    })
+
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(105, 35, 8000000),
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 航线数据
+    // ══════════════════════════════════════════════════
+    const ROUTES = {
+      china: {
+        label: "中国主要城市",
+        points: [
+          [116.39, 39.91, "北京"],
+          [121.47, 31.23, "上海"],
+          [113.26, 23.13, "广州"],
+          [114.06, 22.54, "深圳"],
+          [120.15, 30.28, "杭州"],
+          [118.78, 32.06, "南京"],
+          [104.07, 30.57, "成都"],
+          [108.94, 34.26, "西安"],
+        ],
+      },
+      world: {
+        label: "世界首都",
+        points: [
+          [116.39, 39.91, "北京"],
+          [139.69, 35.68, "东京"],
+          [ -0.12, 51.50, "伦敦"],
+          [  2.35, 48.85, "巴黎"],
+          [ 12.56, 55.68, "哥本哈根"],
+          [151.20,-33.86, "悉尼"],
+        ],
+      },
+    }
+
+    let currentPoints = []
+    let markerEntities = []
+
+    // ══════════════════════════════════════════════════
+    // 5. 弹窗 — 点击城市名直接跳转
+    // ══════════════════════════════════════════════════
+    window.showRoute = (key) => {
+      const route = ROUTES[key]
+      const names = { china: "🏯 中国主要城市", world: "🌍 世界首都" }
+
+      document.getElementById("modalTitle").textContent = names[key] || route.label
+      document.getElementById("modalSub").textContent = "点击城市直接跳转"
+
+      const list = document.getElementById("modalList")
+      list.innerHTML = route.points
+        .map(
+          (p, i) =>
+            `<div class="city-item" data-key="${key}" data-index="${i}">
+              <span class="ci">${p[2] || "航点 " + (i + 1)}</span>
+              <span class="co">${p[0].toFixed(2)}, ${p[1].toFixed(2)}</span>
+              <span class="arrow">→</span>
+            </div>`
+        )
+        .join("")
+
+      document.getElementById("modal").classList.add("show")
+
+      // 点击城市跳转
+      list.querySelectorAll(".city-item").forEach((el) => {
+        el.addEventListener("click", () => {
+          const routeKey = el.dataset.key
+          const idx = parseInt(el.dataset.index)
+          const point = ROUTES[routeKey].points[idx]
+          const [lng, lat, name] = point
+
+          document.getElementById("modal").classList.remove("show")
+
+          // 飞至该城市
+          viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(lng, lat, 200000),
+            orientation: { heading: 0, pitch: Cesium.Math.toRadians(-60), roll: 0 },
+            duration: 2,
+          })
+
+          document.getElementById("statusBar").textContent =
+            `📍 已跳转至 ${name}（${lng.toFixed(2)}, ${lat.toFixed(2)}）`
+        })
+      })
+    }
+
+    window.closeModal = () => {
+      document.getElementById("modal").classList.remove("show")
+    }
+
+    // ══════════════════════════════════════════════════
+    // 6. 手动点选
+    // ══════════════════════════════════════════════════
+    window.setCustomMode = () => {
+      document.getElementById("statusBar").textContent =
+        "🖱️ 点击地图添加标记，添加后自动飞至全部"
+    }
+
+    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+    let customPoints = []
+    let customEntities = []
+
+    handler.setInputAction((event) => {
+      const cartesian = viewer.scene.pickPosition(event.position)
+      if (!Cesium.defined(cartesian)) return
+
+      const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
+      const lng = Cesium.Math.toDegrees(cartographic.longitude)
+      const lat = Cesium.Math.toDegrees(cartographic.latitude)
+
+      // 手动点选模式
+      customPoints.push([lng, lat])
+
+      const entity = viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(lng, lat),
+        point: {
+          color: Cesium.Color.fromCssColorString("#fbbf24"),
+          pixelSize: 10,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          outlineWidth: 2,
+          outlineColor: Cesium.Color.WHITE,
+        },
+        label: {
+          text: String(customPoints.length),
+          font: "13px sans-serif",
+          fillColor: Cesium.Color.WHITE,
+          pixelOffset: new Cesium.Cartesian2(0, -18),
+          showBackground: true,
+          backgroundColor: new Cesium.Color(0, 0, 0, 0.5),
+        },
+      })
+      customEntities.push(entity)
+
+      // 自动飞至全部
+      flyToPositions(viewer, customPoints, { duration: 2, pitch: -50 })
+      document.getElementById("statusBar").textContent =
+        `📍 已添加第 ${customPoints.length} 个点，自动飞至视野`
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+
+    // ══════════════════════════════════════════════════
+    // 7. 清除
+    // ══════════════════════════════════════════════════
+    document.getElementById("btnClear").addEventListener("click", () => {
+      markerEntities.forEach((e) => viewer.entities.remove(e))
+      customEntities.forEach((e) => viewer.entities.remove(e))
+      markerEntities = []
+      customEntities = []
+      currentPoints = []
+      customPoints = []
+      document.getElementById("statusBar").textContent = "🗑️ 已清除所有标记"
+    })
+  </script>
+</body>
+
+</html>
