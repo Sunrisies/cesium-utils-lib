@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>06 - 自定义标记 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #cesiumContainer { width: 100%; height: 100%; }
+
+    /* 控制面板 */
+    #panel {
+      position: fixed; top: 20px; right: 20px; z-index: 999;
+      background: rgba(11, 14, 23, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;
+      padding: 16px 20px; min-width: 200px; color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #panel .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+    #panel .field { margin-bottom: 10px; }
+    #panel .field label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+    #panel .field input[type="color"] {
+      width: 100%; height: 32px; border: 1px solid #1f2640; border-radius: 6px;
+      background: transparent; cursor: pointer; padding: 2px;
+    }
+    #panel .field .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+    #panel .field .btn-group button {
+      flex: 1; min-width: 60px; padding: 6px 0; border: 1px solid #1f2640;
+      border-radius: 6px; background: #151a28; color: #e0e0e0; font-size: 12px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    #panel .field .btn-group button:hover { background: #1a2140; border-color: #3b82f6; }
+    #panel .field .btn-group button.active { background: #1d4ed8; border-color: #3b82f6; }
+    #panel .actions { display: flex; gap: 8px; }
+    #panel .actions button {
+      flex: 1; padding: 8px 0; border: none; border-radius: 6px;
+      font-size: 13px; cursor: pointer; transition: opacity 0.2s;
+    }
+    #panel .actions button:hover { opacity: 0.85; }
+    #btnAdd { background: #3b82f6; color: #fff; }
+    #btnClear { background: #ef4444; color: #fff; }
+    .count { font-size: 12px; color: #6b7280; text-align: center; margin-top: 8px; }
+
+    #statusBar {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999;
+      background: rgba(11, 14, 23, 0.8); backdrop-filter: blur(4px);
+      padding: 10px 24px; border-radius: 8px; color: #8a8f9d; font-size: 14px;
+      border: 1px solid #1f2640; pointer-events: none; white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <div id="panel">
+    <div class="title">📍 自定义标记</div>
+
+    <div class="field">
+      <label>标记颜色</label>
+      <input type="color" id="colorPicker" value="#3b82f6" />
+    </div>
+
+    <div class="field">
+      <label>标记大小</label>
+      <div class="btn-group" id="sizeGroup">
+        <button data-size="28">小</button>
+        <button data-size="38" class="active">中</button>
+        <button data-size="48">大</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>位置模式</label>
+      <div class="btn-group" id="modeGroup">
+        <button data-mode="add" class="active">点击添加</button>
+        <button data-mode="batch">批量添加</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btnClear">🗑️ 清除全部</button>
+    </div>
+    <div class="count" id="countText">已添加 0 个标记</div>
+  </div>
+
+  <div id="statusBar">🖱️ 点击地图任意位置添加带编号的标记</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { createPinImage, createBillboardEntity, createLabelEntity } from "../dist/index.js"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false, timeline: false,
+      baseLayerPicker: false, infoBox: false, selectionIndicator: false,
+    })
+
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(116.39, 39.91, 500000),
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 状态
+    // ══════════════════════════════════════════════════
+    let markerCount = 0
+    let currentColor = "#3b82f6"
+    let currentSize = 38
+    let mode = "add"        // add | batch
+    const entities = []     // 所有已创建的 entity
+
+    // 固定的批量坐标
+    const batchPoints = [
+      { lng: 116.39, lat: 39.91, name: "北京" },
+      { lng: 121.47, lat: 31.23, name: "上海" },
+      { lng: 113.26, lat: 23.13, name: "广州" },
+      { lng: 114.06, lat: 22.54, name: "深圳" },
+      { lng: 120.15, lat: 30.28, name: "杭州" },
+      { lng: 118.78, lat: 32.06, name: "南京" },
+      { lng: 117.28, lat: 31.86, name: "合肥" },
+      { lng: 103.82, lat: 36.56, name: "兰州" },
+    ]
+
+    // ══════════════════════════════════════════════════
+    // 5. 添加标记
+    // ══════════════════════════════════════════════════
+    function addMarker(lng, lat, label) {
+      markerCount++
+      const text = label || markerCount
+      const name = label || `标记${markerCount}`
+
+      // 创建带编号的 Pin 图片
+      const image = createPinImage({ text, color: currentColor, size: currentSize })
+
+      // 创建 Billboard Entity
+      const entity = createBillboardEntity(
+        Cesium.Cartesian3.fromDegrees(lng, lat),
+        { image },
+        name
+      )
+      viewer.entities.add(entity)
+      entities.push(entity)
+      updateCount()
+    }
+
+    function addBatch() {
+      batchPoints.forEach((p, i) => {
+        addMarker(p.lng, p.lat, i + 1)
+      })
+      document.getElementById("statusBar").textContent =
+        `✅ 已批量添加 ${batchPoints.length} 个标记`
+    }
+
+    // ══════════════════════════════════════════════════
+    // 6. 点击添加
+    // ══════════════════════════════════════════════════
+    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+
+    handler.setInputAction((event) => {
+      if (mode !== "add") return
+
+      const cartesian = viewer.scene.pickPosition(event.position)
+      if (!Cesium.defined(cartesian)) return
+
+      const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
+      const lng = Cesium.Math.toDegrees(cartographic.longitude)
+      const lat = Cesium.Math.toDegrees(cartographic.latitude)
+
+      addMarker(lng, lat)
+      document.getElementById("statusBar").textContent =
+        `📍 已添加标记 #${markerCount} (${lng.toFixed(4)}, ${lat.toFixed(4)})`
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+
+    // ══════════════════════════════════════════════════
+    // 7. 控件绑定
+    // ══════════════════════════════════════════════════
+    // 颜色
+    document.getElementById("colorPicker").addEventListener("input", (e) => {
+      currentColor = e.target.value
+    })
+
+    // 大小
+    document.querySelectorAll("#sizeGroup button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#sizeGroup button").forEach((b) => b.classList.remove("active"))
+        btn.classList.add("active")
+        currentSize = parseInt(btn.dataset.size)
+      })
+    })
+
+    // 模式
+    document.querySelectorAll("#modeGroup button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#modeGroup button").forEach((b) => b.classList.remove("active"))
+        btn.classList.add("active")
+        mode = btn.dataset.mode
+
+        if (mode === "batch") {
+          document.getElementById("statusBar").textContent = ""
+          addBatch()
+          mode = "add"
+          document.querySelector("#modeGroup button[data-mode='add']").classList.add("active")
+          document.querySelector("#modeGroup button[data-mode='batch']").classList.remove("active")
+        }
+      })
+    })
+
+    // 清除
+    document.getElementById("btnClear").addEventListener("click", () => {
+      entities.forEach((e) => viewer.entities.remove(e))
+      entities.length = 0
+      markerCount = 0
+      updateCount()
+      document.getElementById("statusBar").textContent = "🗑️ 已清除所有标记"
+    })
+
+    function updateCount() {
+      document.getElementById("countText").textContent = `已添加 ${entities.length} 个标记`
+    }
+  </script>
+</body>
+
+</html>
