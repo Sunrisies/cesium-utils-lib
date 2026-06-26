@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>08 - 相机控制 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #cesiumContainer { width: 100%; height: 100%; }
+
+    #panel {
+      position: fixed; top: 20px; right: 20px; z-index: 999;
+      background: rgba(11, 14, 23, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;
+      padding: 16px 20px; min-width: 210px; color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #panel .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+
+    .height-display {
+      text-align: center; padding: 16px 0; margin-bottom: 12px;
+      background: #151a28; border-radius: 8px; border: 1px solid #1f2640;
+    }
+    .height-display .val {
+      font-size: 32px; font-weight: 700; color: #60a5fa; font-variant-numeric: tabular-nums;
+    }
+    .height-display .unit { font-size: 14px; color: #6b7280; margin-left: 4px; }
+    .height-display .lbl { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+    .section { margin-bottom: 12px; }
+    .section .s-title { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+    .section .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .section .btn-row button {
+      flex: 1; min-width: 60px; padding: 7px 0; border: 1px solid #1f2640;
+      border-radius: 6px; background: #151a28; color: #e0e0e0; font-size: 12px;
+      cursor: pointer; transition: all 0.15s; text-align: center;
+    }
+    .section .btn-row button:hover { background: #1a2140; border-color: #3b82f6; }
+    .section .btn-row button.primary { background: #1d4ed8; border-color: #3b82f6; }
+
+    #statusBar {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999;
+      background: rgba(11, 14, 23, 0.8); backdrop-filter: blur(4px);
+      padding: 10px 24px; border-radius: 8px; color: #8a8f9d; font-size: 14px;
+      border: 1px solid #1f2640; pointer-events: none; white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <div id="panel">
+    <div class="title">📷 相机控制</div>
+
+    <div class="height-display">
+      <div><span class="val" id="heightVal">—</span><span class="unit">m</span></div>
+      <div class="lbl">当前相机高度</div>
+    </div>
+
+    <div class="section">
+      <div class="s-title">快速跳转</div>
+      <div class="btn-row">
+        <button onclick="jumpTo(116.39, 39.91, 500)">🏯 天安门</button>
+        <button onclick="jumpTo(121.47, 31.23, 500)">🏙️ 上海</button>
+        <button onclick="jumpTo(113.26, 23.13, 500)">🏯 广州</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="s-title">视野高度</div>
+      <div class="btn-row">
+        <button onclick="zoomTo(1000)">1km</button>
+        <button onclick="zoomTo(10000)">10km</button>
+        <button onclick="zoomTo(100000)">100km</button>
+        <button onclick="zoomTo(1000000)">1000km</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="statusBar">🔄 拖拽地图，观察相机高度变化</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { getCameraHeight, setView, flyTo } from "../dist/index.js"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false, timeline: false,
+      baseLayerPicker: false, infoBox: false, selectionIndicator: false,
+    })
+
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(116.39, 39.91, 500000),
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 实时更新高度
+    // ══════════════════════════════════════════════════
+    function updateHeight() {
+      const h = getCameraHeight(viewer)
+      document.getElementById("heightVal").textContent = h >= 1000
+        ? (h / 1000).toFixed(1)
+        : h.toFixed(0)
+      document.querySelector(".height-display .unit").textContent = h >= 1000 ? "km" : "m"
+    }
+
+    viewer.scene.postRender.addEventListener(updateHeight)
+    updateHeight()
+
+    // ══════════════════════════════════════════════════
+    // 5. 跳转（使用 setView）
+    // ══════════════════════════════════════════════════
+    window.jumpTo = (lng, lat, height) => {
+      setView(viewer, Cesium.Cartesian3.fromDegrees(lng, lat, height), {
+        pitch: -60,
+      })
+      document.getElementById("statusBar").textContent =
+        `📍 已跳转至 (${lng.toFixed(2)}, ${lat.toFixed(2)}) · 高度 ${height}m`
+    }
+
+    // ══════════════════════════════════════════════════
+    // 6. 变焦（保持当前朝向，只改变高度）
+    // ══════════════════════════════════════════════════
+    window.zoomTo = (height) => {
+      const camera = viewer.camera
+      const cartographic = camera.positionCartographic
+      const lng = Cesium.Math.toDegrees(cartographic.longitude)
+      const lat = Cesium.Math.toDegrees(cartographic.latitude)
+      const heading = Cesium.Math.toDegrees(camera.heading)
+      const pitch = Cesium.Math.toDegrees(camera.pitch)
+
+      flyTo(viewer, Cesium.Cartesian3.fromDegrees(lng, lat, height), {
+        heading,
+        pitch,
+        duration: 1.5,
+      })
+      document.getElementById("statusBar").textContent =
+        `🔍 变焦至 ${height >= 1000 ? height / 1000 + "km" : height + "m"}`
+    }
+  </script>
+</body>
+
+</html>
