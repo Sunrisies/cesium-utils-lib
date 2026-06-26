@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>09 - 模型放置 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #cesiumContainer { width: 100%; height: 100%; }
+
+    #panel {
+      position: fixed; top: 20px; right: 20px; z-index: 999;
+      background: rgba(11, 14, 23, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;
+      padding: 16px 20px; min-width: 220px; color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #panel .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 2px; }
+    .field .row { display: flex; gap: 8px; align-items: center; }
+    .field .row input[type="range"] { flex: 1; accent-color: #3b82f6; }
+    .field .row .v { font-size: 13px; color: #60a5fa; min-width: 50px; text-align: right; font-variant-numeric: tabular-nums; }
+    .field input[type="number"] {
+      width: 100%; padding: 6px 8px; border: 1px solid #1f2640; border-radius: 6px;
+      background: #151a28; color: #e0e0e0; font-size: 13px;
+    }
+    .coord-row { display: flex; gap: 6px; }
+    .coord-row input { flex: 1; padding: 6px 8px; border: 1px solid #1f2640; border-radius: 6px;
+      background: #151a28; color: #e0e0e0; font-size: 13px; width: 50%; }
+    #statusBar {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999;
+      background: rgba(11, 14, 23, 0.8); backdrop-filter: blur(4px);
+      padding: 10px 24px; border-radius: 8px; color: #8a8f9d; font-size: 14px;
+      border: 1px solid #1f2640; pointer-events: none; white-space: nowrap;
+    }
+    .model-preview {
+      display: flex; gap: 6px; margin-bottom: 12px;
+    }
+    .model-preview button {
+      flex: 1; padding: 7px 0; border: 1px solid #1f2640; border-radius: 6px;
+      background: #151a28; color: #e0e0e0; font-size: 12px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .model-preview button:hover { border-color: #3b82f6; }
+    .model-preview button.active { background: #1d4ed8; border-color: #3b82f6; }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <div id="panel">
+    <div class="title">✈️ 模型放置</div>
+
+    <div class="field">
+      <label>模型选择</label>
+      <div class="model-preview">
+        <button class="active" data-model="plane">🛩️ 飞机</button>
+        <button data-model="box">📦 方块</button>
+        <button data-model="cone">🔺 锥体</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>经纬度</label>
+      <div class="coord-row">
+        <input type="number" id="inputLng" value="116.39" step="0.01" />
+        <input type="number" id="inputLat" value="39.91" step="0.01" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>高度 <span class="v" id="valHeight">100 m</span></label>
+      <input type="range" id="sliderHeight" min="0" max="2000" step="10" value="100" />
+    </div>
+
+    <div class="field">
+      <label>朝向（heading）<span class="v" id="valHeading">0°</span></label>
+      <input type="range" id="sliderHeading" min="0" max="360" step="1" value="0" />
+    </div>
+
+    <div class="field">
+      <label>俯仰（pitch）<span class="v" id="valPitch">0°</span></label>
+      <input type="range" id="sliderPitch" min="-90" max="90" step="1" value="0" />
+    </div>
+
+    <div class="field">
+      <label>翻滚（roll）<span class="v" id="valRoll">0°</span></label>
+      <input type="range" id="sliderRoll" min="-180" max="180" step="1" value="0" />
+    </div>
+  </div>
+
+  <div id="statusBar">🔄 调整参数观察模型位置与朝向变化</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { calculateLocationMatrix } from "../dist/index.js"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false, timeline: false,
+      baseLayerPicker: false, infoBox: false, selectionIndicator: false,
+    })
+
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(116.39, 39.91, 2000),
+      orientation: { heading: 0, pitch: Cesium.Math.toRadians(-30), roll: 0 },
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 模型数据
+    // ══════════════════════════════════════════════════
+    const MODELS = {
+      plane: "https://sandcastle.cesium.com/Models/Cesium_Air.glb",
+      box:     undefined, // 用方块 Entity
+      cone:    undefined, // 用圆锥 Entity
+    }
+
+    let currentModel = "plane"
+    let modelEntity = null
+
+    // ══════════════════════════════════════════════════
+    // 5. 更新模型位置和朝向
+    // ══════════════════════════════════════════════════
+    function updateModel() {
+      const lng = parseFloat(document.getElementById("inputLng").value)
+      const lat = parseFloat(document.getElementById("inputLat").value)
+      const height = parseFloat(document.getElementById("sliderHeight").value)
+      const heading = parseFloat(document.getElementById("sliderHeading").value)
+      const pitch = parseFloat(document.getElementById("sliderPitch").value)
+      const roll = parseFloat(document.getElementById("sliderRoll").value)
+
+      // 更新显示值
+      document.getElementById("valHeight").textContent = height + " m"
+      document.getElementById("valHeading").textContent = heading + "°"
+      document.getElementById("valPitch").textContent = pitch + "°"
+      document.getElementById("valRoll").textContent = roll + "°"
+
+      // 移除旧模型
+      if (modelEntity) {
+        viewer.entities.remove(modelEntity)
+        modelEntity = null
+      }
+
+      if (currentModel === "plane") {
+        // ---- glTF 模型 ----
+        const matrix = calculateLocationMatrix({ longitude: lng, latitude: lat, heading, pitch, roll, height })
+        modelEntity = viewer.entities.add({
+          name: "模型",
+          position: Cesium.Cartesian3.fromDegrees(lng, lat, height),
+          model: {
+            uri: MODELS.plane,
+            modelMatrix: matrix,
+            minimumPixelSize: 64,
+            maximumScale: 20000,
+            scale: 10,
+          },
+        })
+      } else {
+        // ---- 几何体（方块/锥体） ----
+        const position = Cesium.Cartesian3.fromDegrees(lng, lat, height)
+        const hpr = new Cesium.HeadingPitchRoll(
+          Cesium.Math.toRadians(heading),
+          Cesium.Math.toRadians(pitch),
+          Cesium.Math.toRadians(roll)
+        )
+        const orientation = Cesium.Transforms.headingPitchRollQuaternion(position, hpr)
+
+        const options = {
+          position,
+          orientation,
+          box: currentModel === "box" ? {
+            dimensions: new Cesium.Cartesian3(100, 60, 30),
+            material: Cesium.Color.fromCssColorString("#3b82f6").withAlpha(0.8),
+            outline: true,
+            outlineColor: Cesium.Color.WHITE,
+          } : undefined,
+          cylinder: currentModel === "cone" ? {
+            length: 80,
+            topRadius: 0,
+            bottomRadius: 40,
+            material: Cesium.Color.fromCssColorString("#fbbf24").withAlpha(0.8),
+            outline: true,
+            outlineColor: Cesium.Color.WHITE,
+          } : undefined,
+        }
+
+        modelEntity = viewer.entities.add(options)
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    // 6. 控件绑定
+    // ══════════════════════════════════════════════════
+    document.querySelectorAll("#panel input").forEach((el) => {
+      el.addEventListener("input", updateModel)
+    })
+
+    // 模型切换
+    document.querySelectorAll("[data-model]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-model]").forEach((b) => b.classList.remove("active"))
+        btn.classList.add("active")
+        currentModel = btn.dataset.model
+        updateModel()
+      })
+    })
+
+    // 初始更新
+    updateModel()
+
+    // ══════════════════════════════════════════════════
+    // 7. 同步状态到面板
+    // ══════════════════════════════════════════════════
+    document.getElementById("statusBar").textContent =
+      "🔄 拖动滑块调整模型位置和朝向（heading / pitch / roll）"
+  </script>
+</body>
+
+</html>
