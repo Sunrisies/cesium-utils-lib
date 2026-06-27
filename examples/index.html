@@ -6,63 +6,270 @@
   <title>cesium-utils-lib 示例</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; background: #0b0e17; color: #e0e0e0; min-height: 100vh; }
-    .container { max-width: 800px; margin: 0 auto; padding: 48px 24px; }
-    h1 { font-size: 28px; margin-bottom: 8px; color: #fff; }
-    p { color: #8a8f9d; margin-bottom: 32px; }
-    .list { display: flex; flex-direction: column; gap: 12px; }
-    a {
-      display: block; padding: 16px 20px; background: #151a28;
-      border-radius: 8px; text-decoration: none; color: #e0e0e0;
-      border: 1px solid #1f2640; transition: all 0.2s;
+
+    /* ===== 主题变量 ===== */
+    body {
+      --bg: #f8f9fc;
+      --bg2: #ffffff;
+      --bg3: #f0f2f6;
+      --text: #374151;
+      --text2: #6b7280;
+      --text3: #9ca3af;
+      --border: #e5e7eb;
+      --border2: #d1d5db;
+      --accent: #3b82f6;
+      --accent-light: rgba(59,130,246,0.08);
+      --accent-border: rgba(59,130,246,0.15);
+      --shadow: rgba(0,0,0,0.04);
+      --fn-color: #059669;
+      --tag-bg: rgba(251,191,36,0.08);
+      --tag-border: rgba(251,191,36,0.15);
+      --tag-color: #d97706;
+      --gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      transition: background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s;
     }
-    a:hover { border-color: #3b82f6; background: #1a2140; transform: translateX(4px); }
-    .num { color: #3b82f6; font-weight: 600; margin-right: 12px; }
-    .desc { font-size: 13px; color: #6b7280; margin-top: 4px; }
+    body.dark {
+      --bg: #070a14;
+      --bg2: #0d1120;
+      --bg3: #151a28;
+      --text: #e0e0e0;
+      --text2: #6b7280;
+      --text3: #4b5563;
+      --border: #1f2640;
+      --border2: #1f2640;
+      --accent-light: rgba(59,130,246,0.08);
+      --accent-border: rgba(59,130,246,0.12);
+      --shadow: rgba(0,0,0,0.2);
+      --fn-color: #34d399;
+      --tag-bg: rgba(251,191,36,0.08);
+      --tag-border: rgba(251,191,36,0.12);
+      --tag-color: #fbbf24;
+    }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 48px 24px 80px; }
+
+    /* ===== 切换按钮 ===== */
+    .theme-switch {
+      position: fixed; top: 16px; right: 16px; z-index: 100;
+      width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--bg2); color: var(--text2); font-size: 16px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px var(--shadow); transition: all 0.25s;
+    }
+    .theme-switch:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ===== 头部 ===== */
+    .header { text-align: center; margin-bottom: 36px; }
+    .badge {
+      display: inline-block; background: var(--accent-light); color: var(--accent);
+      font-size: 11px; padding: 4px 14px; border-radius: 20px;
+      border: 1px solid var(--accent-border); margin-bottom: 14px;
+    }
+    .header h1 {
+      font-size: 30px; font-weight: 700; letter-spacing: -0.5px;
+      background: var(--gradient);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header p { color: var(--text2); font-size: 14px; margin-top: 8px; }
+    .header p code {
+      background: var(--bg3); padding: 1px 7px; border-radius: 4px;
+      font-size: 13px; color: var(--text2); border: 1px solid var(--border);
+    }
+
+    /* ===== 统计 ===== */
+    .stats {
+      display: flex; justify-content: center; gap: 36px; margin-bottom: 28px;
+    }
+    .stats .item { text-align: center; }
+    .stats .item .num { font-size: 26px; font-weight: 700; color: var(--accent); }
+    .stats .item .lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+    /* ===== 搜索 ===== */
+    .search-box {
+      margin-bottom: 16px; position: relative; max-width: 360px; margin-left: auto; margin-right: auto;
+    }
+    .search-box input {
+      width: 100%; padding: 10px 14px 10px 36px; border: 1px solid var(--border);
+      border-radius: 8px; background: var(--bg2); color: var(--text); font-size: 13px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box input::placeholder { color: var(--text3); }
+    .search-box .icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--text3); font-size: 14px; pointer-events: none;
+    }
+
+    /* ===== 分类 ===== */
+    .filters {
+      display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-bottom: 28px;
+    }
+    .filters button {
+      padding: 5px 14px; border: 1px solid var(--border); border-radius: 16px;
+      background: transparent; color: var(--text2); font-size: 12px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filters button:hover { border-color: var(--accent); color: var(--accent); }
+    .filters button.active {
+      background: var(--accent-light); border-color: var(--accent); color: var(--accent);
+    }
+
+    /* ===== 卡片网格 ===== */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      display: flex; flex-direction: column;
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 20px; text-decoration: none; color: inherit;
+      transition: all 0.25s; position: relative; overflow: hidden;
+      cursor: pointer; box-shadow: 0 1px 3px var(--shadow);
+    }
+    .card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .card:hover {
+      border-color: var(--accent); transform: translateY(-3px);
+      box-shadow: 0 8px 24px var(--shadow);
+    }
+    .card:hover::before { opacity: 1; }
+
+    .card .icon-box {
+      width: 42px; height: 42px; border-radius: 10px; display: flex;
+      align-items: center; justify-content: center; font-size: 20px;
+      background: var(--accent-light); border: 1px solid var(--accent-border);
+      margin-bottom: 14px;
+    }
+    .card .num-tag {
+      position: absolute; top: 14px; right: 14px;
+      font-size: 11px; color: var(--text3); font-weight: 600;
+    }
+    .card .title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .card .desc { font-size: 12px; color: var(--text2); line-height: 1.5; flex: 1; }
+    .card .footer {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+    }
+    .card .footer .fn {
+      font-size: 11px; color: var(--fn-color); font-family: monospace;
+    }
+    .card .footer .tag {
+      font-size: 10px; padding: 2px 8px; border-radius: 10px;
+      background: var(--tag-bg); color: var(--tag-color); border: 1px solid var(--tag-border);
+    }
+
+    .empty { display: none; text-align: center; padding: 60px 0; color: var(--text2); }
+    .empty.show { display: block; }
+
+    @media (max-width: 600px) {
+      .container { padding: 32px 16px; }
+      .header h1 { font-size: 24px; }
+      .stats { gap: 20px; }
+      .grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
+  <!-- 主题切换 -->
+  <button class="theme-switch" id="themeBtn" title="切换主题">🌙</button>
+
   <div class="container">
-    <h1>📦 cesium-utils-lib 示例</h1>
-    <p>每个示例是一个独立的 HTML 文件，可直接打开或通过 <code>npx vite examples --open</code> 运行</p>
-    <div class="list">
-      <a href="01-get-lonlat.html">
-        <span class="num">01</span> 鼠标点击获取经纬度
-        <div class="desc">getLonLat — 点击地图任意位置，显示经纬度与高度</div>
-      </a>
-      <a href="02-cartesian-to-screen.html">
-        <span class="num">02</span> 三维坐标转屏幕坐标
-        <div class="desc">cartesianToScreen — 3D 位置跟随 HTML 标签，拖拽地图实时更新</div>
-      </a>
-      <a href="03-distance-midpoint.html">
-        <span class="num">03</span> 距离测量与中点
-        <div class="desc">distance + midpoint — 点击两个位置，显示球面距离和中点坐标</div>
-      </a>
-      <a href="04-scan-circle.html">
-        <span class="num">04</span> 扩散扫描圆环
-        <div class="desc">createScanCircle — 可调颜色/半径/速度/多环间隔的雷达扫描动画</div>
-      </a>
-      <a href="05-screenshot.html">
-        <span class="num">05</span> 截图工具
-        <div class="desc">screenshot — 高清截图 + 双击渲染 + 自动下载，支持 1x/2x/3x</div>
-      </a>
-      <a href="06-custom-markers.html">
-        <span class="num">06</span> 自定义标记
-        <div class="desc">createPinImage + createBillboardEntity — 点击添加编号标记，支持颜色/大小</div>
-      </a>
-      <a href="07-fly-to-positions.html">
-        <span class="num">07</span> 多点视野飞行
-        <div class="desc">flyToPositions — 预设航线/手动标点，一键飞至所有点可见视野</div>
-      </a>
-      <a href="08-camera-control.html">
-        <span class="num">08</span> 相机控制
-        <div class="desc">getCameraHeight + setView + flyTo — 实时高度 + 一键跳转 + 变焦</div>
-      </a>
-      <a href="09-model-placement.html">
-        <span class="num">09</span> 模型放置
-        <div class="desc">calculateLocationMatrix — 飞机/方块/锥体，调整 heading/pitch/roll 实时预览</div>
-      </a>
+
+    <div class="header">
+      <div class="badge">📦 cesium-utils-lib</div>
+      <h1>示例集 · Examples</h1>
+      <p>运行: <code>npx vite examples --open</code></p>
     </div>
+
+    <div class="stats">
+      <div class="item"><div class="num">9</div><div class="lbl">示例</div></div>
+      <div class="item"><div class="num" style="color:#059669">5</div><div class="lbl">地理工具</div></div>
+      <div class="item"><div class="num" style="color:#d97706">3</div><div class="lbl">可视化</div></div>
+      <div class="item"><div class="num" style="color:#7c3aed">1</div><div class="lbl">交互</div></div>
+    </div>
+
+    <div class="search-box">
+      <span class="icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="搜索..." />
+    </div>
+
+    <div class="filters">
+      <button class="active" data-filter="all">全部</button>
+      <button data-filter="geo">🌐 地理工具</button>
+      <button data-filter="visual">🎨 可视化</button>
+      <button data-filter="interact">🖱️ 交互</button>
+    </div>
+
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="emptyState">没有匹配的示例</div>
   </div>
+
+  <script>
+    const EXAMPLES = [
+      { num:"01", file:"01-get-lonlat.html",    title:"鼠标点击获取经纬度", desc:"点击地图显示经纬度与高度",         fn:"getLonLat",                 tag:"地理工具", icon:"🗺️" },
+      { num:"02", file:"02-cartesian-to-screen.html", title:"三维坐标转屏幕坐标", desc:"3D 位置跟随 HTML 标签",    fn:"cartesianToScreen",         tag:"场景交互", icon:"📍" },
+      { num:"03", file:"03-distance-midpoint.html",   title:"距离测量与中点", desc:"两点间球面距离和中点坐标",      fn:"distance + midpoint",       tag:"地理工具", icon:"📏" },
+      { num:"04", file:"04-scan-circle.html",    title:"扩散扫描圆环", desc:"可调参数的雷达扫描动画",              fn:"createScanCircle",          tag:"可视化", icon:"📡" },
+      { num:"05", file:"05-screenshot.html",     title:"截图工具", desc:"高清截图与下载 1x/2x/3x",                  fn:"screenshot",                tag:"场景交互", icon:"📷" },
+      { num:"06", file:"06-custom-markers.html",  title:"自定义标记", desc:"点击添加可编号标记点",                   fn:"createPinImage",            tag:"地理工具", icon:"📍" },
+      { num:"07", file:"07-fly-to-positions.html",title:"点击城市跳转", desc:"预设航线，点击城市名飞行直达",         fn:"flyToPositions",            tag:"地理工具", icon:"✈️" },
+      { num:"08", file:"08-camera-control.html",  title:"相机控制", desc:"实时高度显示与一键跳转变焦",              fn:"getCameraHeight + setView", tag:"地理工具", icon:"📷" },
+      { num:"09", file:"09-model-placement.html", title:"模型放置", desc:"飞机/方块/锥体朝向实时调节",               fn:"calculateLocationMatrix",   tag:"可视化", icon:"✈️" },
+    ]
+
+    const CATEGORY = { "地理工具":"geo", "可视化":"visual", "场景交互":"interact" }
+    let filter = "all", search = ""
+
+    function render() {
+      const items = EXAMPLES.filter((ex) => {
+        const mf = filter === "all" || CATEGORY[ex.tag] === filter
+        const ms = !search || ex.title.includes(search) || ex.fn.toLowerCase().includes(search.toLowerCase())
+        return mf && ms
+      })
+      const grid = document.getElementById("grid")
+      document.getElementById("emptyState").classList.toggle("show", items.length === 0)
+      grid.innerHTML = items.map((ex) => `
+        <a class="card" href="${ex.file}">
+          <span class="num-tag">#${ex.num}</span>
+          <div class="icon-box">${ex.icon}</div>
+          <div class="title">${ex.title}</div>
+          <div class="desc">${ex.desc}</div>
+          <div class="footer">
+            <span class="fn">${ex.fn}</span>
+            <span class="tag">${ex.tag}</span>
+          </div>
+        </a>
+      `).join("")
+    }
+
+    document.getElementById("searchInput").addEventListener("input", (e) => {
+      search = e.target.value; render()
+    })
+    document.querySelectorAll("[data-filter]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-filter]").forEach((b) => b.classList.remove("active"))
+        btn.classList.add("active"); filter = btn.dataset.filter; render()
+      })
+    })
+    render()
+
+    // ===== 主题切换 =====
+    const themeBtn = document.getElementById("themeBtn")
+    function setTheme(dark) {
+      document.body.classList.toggle("dark", dark)
+      themeBtn.textContent = dark ? "☀️" : "🌙"
+      localStorage.setItem("theme", dark ? "dark" : "light")
+    }
+    themeBtn.addEventListener("click", () => setTheme(!document.body.classList.contains("dark")))
+    // 初始从 localStorage 读取
+    if (localStorage.getItem("theme") === "dark") setTheme(true)
+  </script>
 </body>
 </html>
