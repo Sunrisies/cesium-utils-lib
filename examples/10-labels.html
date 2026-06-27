@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>10 - 文字标注 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #cesiumContainer { width: 100%; height: 100%; }
+
+    #panel {
+      position: fixed; top: 20px; right: 20px; z-index: 999;
+      background: rgba(11, 14, 23, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;
+      padding: 16px 20px; min-width: 210px; color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #panel .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 3px; }
+    .field input[type="text"] {
+      width: 100%; padding: 7px 10px; border: 1px solid #1f2640; border-radius: 6px;
+      background: #151a28; color: #e0e0e0; font-size: 13px; outline: none;
+    }
+    .field input[type="text"]:focus { border-color: #3b82f6; }
+    .field input[type="color"] {
+      width: 100%; height: 30px; border: 1px solid #1f2640; border-radius: 6px;
+      background: transparent; cursor: pointer; padding: 2px;
+    }
+    .field .row { display: flex; gap: 8px; align-items: center; }
+    .field .row select {
+      flex: 1; padding: 6px 8px; border: 1px solid #1f2640; border-radius: 6px;
+      background: #151a28; color: #e0e0e0; font-size: 12px;
+    }
+    .field .row input[type="range"] { flex: 1; accent-color: #3b82f6; }
+    .field .row .v { font-size: 13px; color: #60a5fa; min-width: 36px; text-align: right; }
+    .chk { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+    .chk input { accent-color: #3b82f6; }
+    .chk label { font-size: 12px; color: #6b7280; margin: 0; }
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .actions button {
+      flex: 1; padding: 8px 0; border: none; border-radius: 6px;
+      font-size: 13px; cursor: pointer; transition: opacity 0.2s;
+    }
+    .actions button:hover { opacity: 0.85; }
+    #btnAdd { background: #3b82f6; color: #fff; }
+    #btnClear { background: #6b7280; color: #fff; }
+
+    #statusBar {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999;
+      background: rgba(11, 14, 23, 0.8); backdrop-filter: blur(4px);
+      padding: 10px 24px; border-radius: 8px; color: #8a8f9d; font-size: 14px;
+      border: 1px solid #1f2640; pointer-events: none; white-space: nowrap;
+    }
+
+    .demo-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 6px;
+    }
+    .demo-grid button {
+      padding: 5px 0; border: 1px solid #1f2640; border-radius: 4px;
+      background: #151a28; color: #8a8f9d; font-size: 11px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .demo-grid button:hover { border-color: #3b82f6; color: #e0e0e0; }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <div id="panel">
+    <div class="title">🏷️ 文字标注</div>
+
+    <div class="field">
+      <label>标注文字</label>
+      <input type="text" id="inputText" value="北京" />
+    </div>
+
+    <div class="field">
+      <label>字体大小 <span class="v" id="valSize">16</span></label>
+      <div class="row">
+        <input type="range" id="sliderSize" min="10" max="36" step="1" value="16" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>文字颜色</label>
+      <input type="color" id="colorText" value="#ffffff" />
+    </div>
+
+    <div class="field">
+      <label>背景</label>
+      <div class="chk">
+        <input type="checkbox" id="chkBg" checked />
+        <label for="chkBg">显示背景</label>
+      </div>
+      <div class="row" style="margin-top:4px">
+        <input type="color" id="colorBg" value="#000000" style="flex:1;height:28px" />
+        <input type="range" id="sliderBgOpacity" min="0.1" max="1" step="0.1" value="0.6" style="flex:2" />
+        <span class="v" id="valBgOpacity" style="min-width:30px">0.6</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>快速添加</label>
+      <div class="demo-grid" id="quickBtns">
+        <button data-lng="116.39" data-lat="39.91" data-text="北京">🏯 北京</button>
+        <button data-lng="121.47" data-lat="31.23" data-text="上海">🏙️ 上海</button>
+        <button data-lng="113.26" data-lat="23.13" data-text="广州">🏯 广州</button>
+        <button data-lng="114.06" data-lat="22.54" data-text="深圳">🌃 深圳</button>
+        <button data-lng="104.07" data-lat="30.57" data-text="成都">🌶️ 成都</button>
+        <button data-lng="108.94" data-lat="34.26" data-text="西安">🏛️ 西安</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btnAdd">➕ 在地图中心添加</button>
+      <button id="btnClear">🗑️ 清除</button>
+    </div>
+  </div>
+
+  <div id="statusBar">🖱️ 点击快捷按钮添加城市标注，或调整样式后点击「在地图中心添加」</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { createLabelEntity } from "../dist/index.js"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      animation: false, timeline: false,
+      baseLayerPicker: false, infoBox: false, selectionIndicator: false,
+    })
+
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(110, 34, 6000000),
+    })
+
+    // ══════════════════════════════════════════════════
+    // 4. 状态
+    // ══════════════════════════════════════════════════
+    let entities = []
+
+    function getOptions() {
+      const size = parseInt(document.getElementById("sliderSize").value)
+      const textColor = Cesium.Color.fromCssColorString(document.getElementById("colorText").value)
+      const showBg = document.getElementById("chkBg").checked
+      const bgColor = Cesium.Color.fromCssColorString(document.getElementById("colorBg").value).withAlpha(
+        parseFloat(document.getElementById("sliderBgOpacity").value)
+      )
+
+      return {
+        font: `${size}px sans-serif`,
+        fillColor: textColor,
+        showBackground: showBg,
+        backgroundColor: bgColor,
+        pixelOffset: new Cesium.Cartesian2(0, -14),
+      }
+    }
+
+    function placeLabel(lng, lat, text) {
+      const entity = createLabelEntity(
+        Cesium.Cartesian3.fromDegrees(lng, lat),
+        text,
+        getOptions()
+      )
+      viewer.entities.add(entity)
+      entities.push(entity)
+      document.getElementById("statusBar").textContent = `✅ 已添加标注「${text}」`
+    }
+
+    // 快速添加按钮
+    document.querySelectorAll("#quickBtns button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        placeLabel(
+          parseFloat(btn.dataset.lng),
+          parseFloat(btn.dataset.lat),
+          btn.dataset.text
+        )
+      })
+    })
+
+    // ══════════════════════════════════════════════════
+    // 5. 在地图中心添加
+    // ══════════════════════════════════════════════════
+    document.getElementById("btnAdd").addEventListener("click", () => {
+      const text = document.getElementById("inputText").value.trim() || "标注"
+      const camera = viewer.camera
+      const cartographic = camera.positionCartographic
+      const lng = Cesium.Math.toDegrees(cartographic.longitude)
+      const lat = Cesium.Math.toDegrees(cartographic.latitude)
+
+      placeLabel(lng, lat, text)
+    })
+
+    // ══════════════════════════════════════════════════
+    // 6. 清除
+    // ══════════════════════════════════════════════════
+    document.getElementById("btnClear").addEventListener("click", () => {
+      entities.forEach((e) => viewer.entities.remove(e))
+      entities = []
+      document.getElementById("statusBar").textContent = "🗑️ 已清除所有标注"
+    })
+
+    // ══════════════════════════════════════════════════
+    // 7. 滑块实时显示
+    // ══════════════════════════════════════════════════
+    document.getElementById("sliderSize").addEventListener("input", (e) => {
+      document.getElementById("valSize").textContent = e.target.value
+    })
+    document.getElementById("sliderBgOpacity").addEventListener("input", (e) => {
+      document.getElementById("valBgOpacity").textContent = e.target.value
+    })
+  </script>
+</body>
+
+</html>
