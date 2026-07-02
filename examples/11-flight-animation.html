@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>11 - 航线动画 | cesium-utils-lib</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: system-ui, sans-serif; }
+    #cesiumContainer { width: 100%; height: 100%; }
+
+    #panel {
+      position: fixed; top: 20px; right: 20px; z-index: 999;
+      background: rgba(11, 14, 23, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;
+      padding: 16px 20px; min-width: 200px; color: #e0e0e0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    #panel .title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+    .sec { margin-bottom: 12px; }
+    .sec .st { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+    .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btns button {
+      flex: 1; min-width: 50px; padding: 7px 0; border: 1px solid #1f2640;
+      border-radius: 6px; background: #151a28; color: #e0e0e0; font-size: 12px;
+      cursor: pointer; transition: all 0.15s; text-align: center;
+    }
+    .btns button:hover { border-color: #3b82f6; }
+    .btns button.active { background: #1d4ed8; border-color: #3b82f6; }
+    .btns button.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+    .btns button.danger { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .btns button.success { background: #10b981; border-color: #10b981; color: #fff; }
+
+    .info {
+      font-size: 12px; color: #6b7280; padding-top: 10px; border-top: 1px solid #1f2640;
+      display: flex; justify-content: space-between;
+    }
+    .info .v { color: #60a5fa; font-weight: 600; }
+
+    #statusBar {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999;
+      background: rgba(11, 14, 23, 0.8); backdrop-filter: blur(4px);
+      padding: 10px 24px; border-radius: 8px; color: #8a8f9d; font-size: 14px;
+      border: 1px solid #1f2640; pointer-events: none; white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="cesiumContainer"></div>
+
+  <div id="panel">
+    <div class="title">✈️ 航线动画</div>
+
+    <div class="sec">
+      <div class="st">预设航线</div>
+      <div class="btns">
+        <button data-route="china" class="active">🏯 中国</button>
+        <button data-route="triangle">🔺 三角</button>
+        <button data-route="s">S 形</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="st">控制</div>
+      <div class="btns">
+        <button id="btnPlay" class="success">▶ 播放</button>
+        <button id="btnPause">⏸ 暂停</button>
+        <button id="btnReset">⏹ 重置</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="st">速度</div>
+      <div class="btns">
+        <button data-speed="0.5">0.5x</button>
+        <button data-speed="1" class="active">1x</button>
+        <button data-speed="2">2x</button>
+        <button data-speed="5">5x</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="st">视角</div>
+      <div class="btns">
+        <button id="btnFPV">🎮 第一视角</button>
+      </div>
+    </div>
+
+    <div class="info">
+      <span>进度</span>
+      <span class="v" id="progressText">0%</span>
+    </div>
+  </div>
+
+  <div id="statusBar">选择航线后点击「播放」查看飞行动画</div>
+
+  <script type="module">
+    // ══════════════════════════════════════════════════
+    // 1. Token
+    // ══════════════════════════════════════════════════
+    Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN
+
+    // ══════════════════════════════════════════════════
+    // 2. 引入库函数
+    // ══════════════════════════════════════════════════
+    import { distance } from "../dist/index.js"
+
+    // ══════════════════════════════════════════════════
+    // 3. 初始化
+    // ══════════════════════════════════════════════════
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      baseLayerPicker: false, infoBox: false, selectionIndicator: false,
+    })
+
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(110, 30, 5000000),
+    })
+
+    // 关闭默认动画控件显示
+    document.querySelector(".cesium-viewer-bottom")?.remove()
+
+    // ══════════════════════════════════════════════════
+    // 4. 航线数据
+    // ══════════════════════════════════════════════════
+    const ROUTES = {
+      china: [
+        [116.39, 39.91, 8000],  // 北京
+        [121.47, 31.23, 8000],  // 上海
+        [114.06, 22.54, 8000],  // 深圳
+        [104.07, 30.57, 8000],  // 成都
+        [108.94, 34.26, 8000],  // 西安
+        [116.39, 39.91, 8000],  // 回北京
+      ],
+      triangle: [
+        [110, 30, 6000],
+        [120, 30, 6000],
+        [115, 25, 6000],
+        [110, 30, 6000],
+        [110, 30, 6000],
+      ],
+      s: [
+        [105, 35, 5000], [110, 34, 5000], [105, 32, 5000],
+        [110, 30, 5000], [105, 28, 5000], [110, 26, 5000],
+        [105, 26, 5000],
+      ],
+    }
+
+    // ══════════════════════════════════════════════════
+    // 5. 状态
+    // ══════════════════════════════════════════════════
+    let currentRoute = "china"
+    let entities = []       // 线 + 飞机
+    let planeEntity = null  // 飞机实体（第一视角跟踪用）
+    let isPlaying = false
+    let isFPV = false       // 第一视角模式
+
+    // ══════════════════════════════════════════════════
+    // 6. 创建航线
+    // ══════════════════════════════════════════════════
+    function createRoute(key) {
+      // 清除旧的
+      planeEntity = null
+      isFPV = false
+      document.getElementById("btnFPV").classList.remove("active")
+      document.getElementById("btnFPV").textContent = "🎮 第一视角"
+      viewer.clock.onTick.removeEventListener(updateFPV)
+      entities.forEach((e) => viewer.entities.remove(e))
+      entities = []
+      viewer.clock.shouldAnimate = false
+      isPlaying = false
+      document.getElementById("btnPlay").textContent = "▶ 播放"
+
+      const points = ROUTES[key]
+      if (!points || points.length < 2) return
+
+      // 计算总距离和每段耗时
+      const totalDist = points
+        .slice(0, -1)
+        .reduce((sum, p, i) => sum + distance(p[0], p[1], points[i + 1][0], points[i + 1][1]), 0)
+
+      const totalDuration = Math.max(totalDist / 150000, 10) // 速度 150km/s，最少 10 秒
+
+      // 创建时间轴
+      const start = Cesium.JulianDate.now()
+      const end = Cesium.JulianDate.addSeconds(start, totalDuration, new Cesium.JulianDate())
+
+      viewer.clock.startTime = start.clone()
+      viewer.clock.stopTime = end.clone()
+      viewer.clock.currentTime = start.clone()
+      viewer.clock.multiplier = 1
+      viewer.clock.clockRange = Cesium.ClockRange.CLAMPED
+
+      // 计算累计时间偏移（按距离比例分配）
+      const segDurations = []
+      for (let i = 0; i < points.length - 1; i++) {
+        const d = distance(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1])
+        segDurations.push((d / totalDist) * totalDuration)
+      }
+
+      // SampledPositionProperty
+      const positionProperty = new Cesium.SampledPositionProperty()
+
+      let elapsed = 0
+      for (let i = 0; i < points.length; i++) {
+        const time = Cesium.JulianDate.addSeconds(start, elapsed, new Cesium.JulianDate())
+        const pos = Cesium.Cartesian3.fromDegrees(points[i][0], points[i][1], points[i][2] || 5000)
+        positionProperty.addSample(time, pos)
+        if (i < segDurations.length) elapsed += segDurations[i]
+      }
+
+      // 航线（polyline）
+      const polyEntity = viewer.entities.add({
+        polyline: {
+          positions: points.map((p) =>
+            Cesium.Cartesian3.fromDegrees(p[0], p[1], p[2] || 5000)
+          ),
+          width: 2,
+          material: new Cesium.PolylineGlowMaterialProperty({
+            color: Cesium.Color.fromCssColorString("rgba(59,130,246,0.7)"),
+            glowPower: 0.2,
+          }),
+          clampToGround: false,
+        },
+      })
+      entities.push(polyEntity)
+
+      // 飞机（点标记沿路径移动）
+      planeEntity = viewer.entities.add({
+        position: positionProperty,
+        point: {
+          color: Cesium.Color.fromCssColorString("#10b981"),
+          pixelSize: 14,
+          outlineWidth: 2,
+          outlineColor: Cesium.Color.WHITE,
+        },
+        label: {
+          text: "✈",
+          font: "20px sans-serif",
+          showBackground: false,
+          pixelOffset: new Cesium.Cartesian2(0, -6),
+        },
+        // 朝向路径
+        orientation: new Cesium.VelocityOrientationProperty(positionProperty),
+        path: {
+          resolution: 1,
+          material: new Cesium.ColorMaterialProperty(
+            Cesium.Color.fromCssColorString("rgba(16,185,129,0.3)")
+          ),
+          width: 3,
+          leadTime: 30,
+          trailTime: 60,
+        },
+      })
+      entities.push(planeEntity)
+
+      // 起点终点标记
+      const startP = points[0]
+      const endP = points[points.length - 1]
+      const sEntity = viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(startP[0], startP[1], startP[2] || 5000),
+        point: { color: Cesium.Color.GREEN, pixelSize: 10 },
+        label: { text: "起点", font: "12px sans-serif", pixelOffset: new Cesium.Cartesian2(0, -16),
+          showBackground: true, backgroundColor: new Cesium.Color(0, 0, 0, 0.5) },
+      })
+      entities.push(sEntity)
+      const eEntity = viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(endP[0], endP[1], endP[2] || 5000),
+        point: { color: Cesium.Color.RED, pixelSize: 10 },
+        label: { text: "终点", font: "12px sans-serif", pixelOffset: new Cesium.Cartesian2(0, -16),
+          showBackground: true, backgroundColor: new Cesium.Color(0, 0, 0, 0.5) },
+      })
+      entities.push(eEntity)
+
+      // 更新进度
+      viewer.clock.onTick.addEventListener(updateProgress)
+
+      // 飞到最佳视野
+      viewer.flyTo(entities.slice(0, 1))
+    }
+
+    // ══════════════════════════════════════════════════
+    // 7. 进度更新
+    // ══════════════════════════════════════════════════
+    function updateProgress() {
+      const start = viewer.clock.startTime
+      const end = viewer.clock.stopTime
+      const now = viewer.clock.currentTime
+      const total = Cesium.JulianDate.secondsDifference(end, start)
+      const elapsed = Cesium.JulianDate.secondsDifference(now, start)
+      const pct = Math.min(100, Math.max(0, (elapsed / total) * 100))
+      document.getElementById("progressText").textContent = Math.round(pct) + "%"
+    }
+
+    // ══════════════════════════════════════════════════
+    // 8. 控件绑定
+    // ══════════════════════════════════════════════════
+    // 选择航线
+    document.querySelectorAll("[data-route]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-route]").forEach((b) => b.classList.remove("active"))
+        btn.classList.add("active")
+        currentRoute = btn.dataset.route
+        createRoute(currentRoute)
+        document.getElementById("statusBar").textContent =
+          `🗺️ 已加载航线「${btn.textContent.trim()}」`
+      })
+    })
+
+    // 播放
+    document.getElementById("btnPlay").addEventListener("click", () => {
+      if (viewer.clock.shouldAnimate) return
+      viewer.clock.shouldAnimate = true
+      isPlaying = true
+      document.getElementById("btnPlay").textContent = "⏩ 播放中"
+      document.getElementById("statusBar").textContent = "▶️ 航线动画播放中"
+    })
+
+    // 暂停
+    document.getElementById("btnPause").addEventListener("click", () => {
+      viewer.clock.shouldAnimate = false
+      isPlaying = false
+      document.getElementById("btnPlay").textContent = "▶ 继续"
+      document.getElementById("statusBar").textContent = "⏸ 已暂停"
+    })
+
+    // 重置
+    document.getElementById("btnReset").addEventListener("click", () => {
+      viewer.clock.shouldAnimate = false
+      isPlaying = false
+      viewer.clock.currentTime = viewer.clock.startTime.clone()
+      document.getElementById("btnPlay").textContent = "▶ 播放"
+      document.getElementById("statusBar").textContent = "⏹ 已重置"
+      updateProgress()
+    })
+
+    // 速度
+    document.querySelectorAll("[data-speed]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-speed]").forEach((b) => b.classList.remove("active"))
+        btn.classList.add("active")
+        viewer.clock.multiplier = parseFloat(btn.dataset.speed)
+        document.getElementById("statusBar").textContent =
+          `⚡ 速度 ${btn.dataset.speed}x`
+      })
+    })
+
+    // ══════════════════════════════════════════════════
+    // 9. 第一视角跟踪
+    // ══════════════════════════════════════════════════
+    function updateFPV() {
+      if (!isFPV || !planeEntity || !viewer.clock.shouldAnimate) return
+
+      const time = viewer.clock.currentTime
+      const pos = planeEntity.position?.getValue(time)
+      const orient = planeEntity.orientation?.getValue(time)
+      if (!pos || !orient) return
+
+      // VelocityOrientationProperty 的朝向：
+      //   列 0 = 前方向（速度方向）
+      //   列 1 = 右方向
+      //   列 2 = 上方向
+      const matrix = Cesium.Matrix4.fromRotationTranslation(
+        Cesium.Matrix3.fromQuaternion(orient),
+        pos
+      )
+
+      const forward = Cesium.Matrix4.getColumn(matrix, 0, new Cesium.Cartesian3())
+      const up = Cesium.Matrix4.getColumn(matrix, 2, new Cesium.Cartesian3())
+
+      viewer.camera.setView({
+        destination: Cesium.Cartesian3.clone(pos),
+        orientation: {
+          direction: forward,
+          up: up,
+        },
+      })
+    }
+
+    // ══════════════════════════════════════════════════
+    // 10. 第一视角切换
+    // ══════════════════════════════════════════════════
+    document.getElementById("btnFPV").addEventListener("click", () => {
+      if (!planeEntity) {
+        document.getElementById("statusBar").textContent = "⚠️ 请先加载航线"
+        return
+      }
+      isFPV = !isFPV
+      const btn = document.getElementById("btnFPV")
+      if (isFPV) {
+        btn.classList.add("active")
+        btn.textContent = "🎮 第一视角 (开)"
+        viewer.clock.onTick.addEventListener(updateFPV)
+        document.getElementById("statusBar").textContent = "🎮 已切换第一视角"
+      } else {
+        btn.classList.remove("active")
+        btn.textContent = "🎮 第一视角"
+        viewer.clock.onTick.removeEventListener(updateFPV)
+        document.getElementById("statusBar").textContent = "🗺️ 已切换全局视角"
+        // 恢复全局视野
+        viewer.flyTo(entities.slice(0, 1))
+      }
+    })
+
+    // ══════════════════════════════════════════════════
+    // 11. 初始化默认航线
+    // ══════════════════════════════════════════════════
+    createRoute("china")
+  </script>
+</body>
+
+</html>

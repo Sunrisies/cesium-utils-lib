@@ -189,10 +189,10 @@
     </div>
 
     <div class="stats">
-      <div class="item"><div class="num">9</div><div class="lbl">示例</div></div>
+      <div class="item"><div class="num">11</div><div class="lbl">示例</div></div>
       <div class="item"><div class="num" style="color:#059669">5</div><div class="lbl">地理工具</div></div>
-      <div class="item"><div class="num" style="color:#d97706">3</div><div class="lbl">可视化</div></div>
-      <div class="item"><div class="num" style="color:#7c3aed">1</div><div class="lbl">交互</div></div>
+      <div class="item"><div class="num" style="color:#d97706">4</div><div class="lbl">可视化</div></div>
+      <div class="item"><div class="num" style="color:#7c3aed">2</div><div class="lbl">交互</div></div>
     </div>
 
     <div class="search-box">
@@ -223,6 +223,7 @@
       { num:"08", file:"08-camera-control.html",  title:"相机控制", desc:"实时高度显示与一键跳转变焦",              fn:"getCameraHeight + setView", tag:"地理工具", icon:"📷" },
       { num:"09", file:"09-model-placement.html", title:"模型放置", desc:"飞机/方块/锥体朝向实时调节",               fn:"calculateLocationMatrix",   tag:"可视化", icon:"✈️" },
       { num:"10", file:"10-labels.html",          title:"文字标注", desc:"字体/颜色/背景自由调节的城市标注",           fn:"createLabelEntity",         tag:"可视化", icon:"🏷️" },
+      { num:"11", file:"11-flight-animation.html", title:"航线动画", desc:"沿路径飞行的动态航线 + 播放/暂停/调速",     fn:"SampledPositionProperty",   tag:"可视化", icon:"✈️" },
     ]
 
     const CATEGORY = { "地理工具":"geo", "可视化":"visual", "场景交互":"interact" }
